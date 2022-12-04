@@ -2,7 +2,7 @@ use std::{cmp::Ordering, error::Error, fmt, str::FromStr};
 
 pub fn run() {
     let input = include_str!("../input/day02/first");
-    // dbg!(first(input));
+    dbg!(first(input));
     dbg!(second(input));
 }
 
@@ -40,7 +40,7 @@ impl Choice {
 
     fn compare(&self, other: &Self) -> usize {
         match self.cmp(other) {
-            Ordering::Less => self.score() + 0,
+            Ordering::Less => self.score(),
             Ordering::Equal => self.score() + 3,
             Ordering::Greater => self.score() + 6,
         }
@@ -113,7 +113,7 @@ fn first(input: &str) -> usize {
                 .collect::<Vec<&str>>();
             let left: Choice = pair[0].parse().unwrap();
             let right: Choice = pair[1].parse().unwrap();
-            return (left, right);
+            (left, right)
         })
         .map(|(left, right)| right.compare(&left))
         .sum()
@@ -136,7 +136,7 @@ fn second(input: &str) -> usize {
                 "Z" => left.greater(),
                 _ => unreachable!(),
             };
-            return (left, right);
+            (left, right)
         })
         .map(|(left, right)| right.compare(&left))
         .sum()

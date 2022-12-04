@@ -1,17 +1,8 @@
-use std::{collections::HashSet, num::ParseIntError, str::FromStr};
+use std::{num::ParseIntError, str::FromStr};
 
 pub fn run() {
     let input = include_str!("../input/day04/first");
-    // let input: &str = "
-    //     2-4,6-8
-    //     2-3,4-5
-    //     5-7,7-9
-    //     2-8,3-7
-    //     6-6,4-6
-    //     2-6,4-8
-    // ";
-
-    // dbg!(first(input));
+    dbg!(first(input));
     dbg!(second(input));
 }
 
@@ -47,14 +38,14 @@ impl Range {
 
 fn first(input: &str) -> usize {
     input
-        .split("\n")
+        .split('\n')
         .map(|k| k.trim())
         .filter(|j| !j.is_empty())
         .map(|i| {
             let pairs: Vec<&str> = i.split(',').take(2).collect();
             let left: Range = pairs[0].parse().unwrap();
             let right: Range = pairs[1].parse().unwrap();
-            return (left, right);
+            (left, right)
         })
         .filter(|(left, right)| left.contains(right) || right.contains(left))
         .count()
@@ -62,14 +53,14 @@ fn first(input: &str) -> usize {
 
 fn second(input: &str) -> usize {
     input
-        .split("\n")
+        .split('\n')
         .map(|k| k.trim())
         .filter(|j| !j.is_empty())
         .map(|i| {
             let pairs: Vec<&str> = i.split(',').take(2).collect();
             let left: Range = pairs[0].parse().unwrap();
             let right: Range = pairs[1].parse().unwrap();
-            return (left, right);
+            (left, right)
         })
         .filter(|(left, right)| left.overlap(right))
         .count()

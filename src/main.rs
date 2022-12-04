@@ -10,7 +10,7 @@ fn main() -> Result<()> {
         utc.day()
     };
 
-    let mod_name = format!("day{:02}", day);
+    let mod_name = format!("day{day:02}");
     match mod_name.as_str() {
         "day01" => day01::run(),
         "day02" => day02::run(),

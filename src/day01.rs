@@ -1,6 +1,6 @@
 pub fn run() {
     let input = include_str!("../input/day01/first");
-    // dbg!(first(input));
+    dbg!(first(input));
     dbg!(second(input));
 }
 
@@ -8,7 +8,7 @@ fn first(input: &str) -> usize {
     input
         .split("\n\n")
         .map(|i| {
-            i.split("\n")
+            i.split('\n')
                 .filter(|j| !j.is_empty())
                 .map(|k| k.trim())
                 .map(|j| j.parse::<usize>().unwrap())
@@ -22,7 +22,7 @@ fn second(input: &str) -> usize {
     let mut calories: Vec<usize> = input
         .split("\n\n")
         .map(|i| {
-            i.split("\n")
+            i.split('\n')
                 .filter(|j| !j.is_empty())
                 .map(|k| k.trim())
                 .map(|j| j.parse::<usize>().unwrap())

@@ -29,13 +29,3 @@ pub mod day28;
 pub mod day29;
 pub mod day30;
 pub mod day31;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        assert!(true);
-    }
-}
