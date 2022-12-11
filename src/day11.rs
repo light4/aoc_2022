@@ -38,39 +38,23 @@ Monkey 3:
 
 pub fn run() {
     let input = include_str!("../input/day11/input");
-    // dbg!(first(input));
+    dbg!(first(input));
     dbg!(second(input));
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct CPU {
+pub struct Machine {
     monkeys: Vec<Monkey>,
     round: usize,
     inspects: Vec<usize>,
+    part: Part,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub enum Instruction {
+pub enum Part {
     #[default]
-    Noop,
-    AddX(isize),
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub enum CycleState {
-    Running,
-    #[default]
-    End,
-}
-
-impl Instruction {
-    #[inline]
-    pub fn cycle_count(&self) -> usize {
-        match self {
-            Self::Noop => 1,
-            Self::AddX(_) => 2,
-        }
-    }
+    One,
+    Two,
 }
 
 #[derive(Debug, Clone)]
@@ -197,42 +181,45 @@ impl FromStr for Monkey {
     }
 }
 
-impl CPU {
-    fn with_monkeys(monkeys: Vec<Monkey>) -> Self {
+impl Machine {
+    #[inline]
+    fn with_monkeys(mut self, monkeys: Vec<Monkey>) -> Self {
         let count = monkeys.len();
-        Self {
-            monkeys,
-            round: 0,
-            inspects: vec![0; count],
-        }
+        self.monkeys = monkeys;
+        self.inspects = vec![0; count];
+        self
     }
 
-    fn first_lower_worry_levels(&self, l: usize) -> usize {
+    #[inline]
+    fn with_part(mut self, part: Part) -> Self {
+        self.part = part;
+        self
+    }
+
+    fn part_one_lower_worry_levels(&self, l: usize) -> usize {
         l / 3
     }
 
-    fn second_lower_worry_levels(&self, l: usize) -> usize {
+    fn part_two_lower_worry_levels(&self, l: usize) -> usize {
         let div_by: usize = self.monkeys.iter().map(|i| i.test_div).product();
         l % div_by
     }
 
     fn run_once(&mut self) {
         for i in 0..self.monkeys.len() {
-            loop {
-                if let Some(worry_level) = self.monkeys[i].items.pop_front() {
-                    self.inspects[i] += 1;
-                    let true_to = self.monkeys[i].true_to;
-                    let false_to = self.monkeys[i].false_to;
-                    let new = self.second_lower_worry_levels(self.monkeys[i].operation.to_func()(
-                        worry_level,
-                    ));
-                    if new % self.monkeys[i].test_div == 0 {
-                        self.monkeys[true_to].items.push_back(new);
-                    } else {
-                        self.monkeys[false_to].items.push_back(new);
-                    }
+            while let Some(worry_level) = self.monkeys[i].items.pop_front() {
+                self.inspects[i] += 1;
+                let true_to = self.monkeys[i].true_to;
+                let false_to = self.monkeys[i].false_to;
+                let mut new_worry_level = self.monkeys[i].operation.to_func()(worry_level);
+                new_worry_level = match &self.part {
+                    Part::One => self.part_one_lower_worry_levels(new_worry_level),
+                    Part::Two => self.part_two_lower_worry_levels(new_worry_level),
+                };
+                if new_worry_level % self.monkeys[i].test_div == 0 {
+                    self.monkeys[true_to].items.push_back(new_worry_level);
                 } else {
-                    break;
+                    self.monkeys[false_to].items.push_back(new_worry_level);
                 }
             }
         }
@@ -264,14 +251,16 @@ fn to_monkeys(input: &str) -> Vec<Monkey> {
 
 fn first(input: &str) -> usize {
     let monkeys = to_monkeys(input);
-    let mut cpu = CPU::with_monkeys(monkeys);
-    cpu.monkey_business(20)
+    let mut m = Machine::default().with_monkeys(monkeys);
+    m.monkey_business(20)
 }
 
 fn second(input: &str) -> usize {
     let monkeys = to_monkeys(input);
-    let mut cpu = CPU::with_monkeys(monkeys);
-    cpu.monkey_business(10000)
+    let mut m = Machine::default()
+        .with_monkeys(monkeys)
+        .with_part(Part::Two);
+    m.monkey_business(10000)
 }
 
 #[cfg(test)]
@@ -280,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_first() {
-        assert_eq!(first(INPUT), 13140);
+        assert_eq!(first(INPUT), 10605);
     }
 
     #[test]
