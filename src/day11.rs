@@ -92,6 +92,39 @@ impl Operation {
     }
 }
 
+impl FromStr for Operation {
+    type Err = ParseMonkeyError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let operation_str_vec: Vec<&str> = s
+            .split('=')
+            .nth(1)
+            .unwrap()
+            .trim()
+            .split_ascii_whitespace()
+            .collect();
+        let operation = match (operation_str_vec[1], operation_str_vec[2]) {
+            ("+", "old") => Operation {
+                op: OP::AddAssign,
+                operand: None,
+            },
+            ("*", "old") => Operation {
+                op: OP::MulAssign,
+                operand: None,
+            },
+            ("+", n) => Operation {
+                op: OP::Add,
+                operand: Some(n.parse().unwrap()),
+            },
+            ("*", n) => Operation {
+                op: OP::Mul,
+                operand: Some(n.parse().unwrap()),
+            },
+            _ => return Err(ParseMonkeyError),
+        };
+        Ok(operation)
+    }
+}
 /// An error returned when parsing a `bool` using [`from_str`] fails
 ///
 /// [`from_str`]: super::FromStr::from_str
@@ -135,39 +168,8 @@ impl FromStr for Monkey {
             .split(',')
             .map(|n| n.trim().parse::<usize>().unwrap())
             .collect::<VecDeque<usize>>();
-        let operation_str_vec: Vec<&str> = lines[1]
-            .split('=')
-            .nth(1)
-            .unwrap()
-            .trim()
-            .split_ascii_whitespace()
-            .collect();
-        let operation = if operation_str_vec[2] == "old" {
-            match operation_str_vec[1] {
-                "+" => Operation {
-                    op: OP::AddAssign,
-                    operand: None,
-                },
-                "*" => Operation {
-                    op: OP::MulAssign,
-                    operand: None,
-                },
-                _ => return Err(ParseMonkeyError),
-            }
-        } else {
-            let operand = operation_str_vec[2].parse::<usize>().unwrap();
-            match operation_str_vec[1] {
-                "+" => Operation {
-                    op: OP::Add,
-                    operand: Some(operand),
-                },
-                "*" => Operation {
-                    op: OP::Mul,
-                    operand: Some(operand),
-                },
-                _ => return Err(ParseMonkeyError),
-            }
-        };
+
+        let operation = lines[1].parse()?;
         let test_div = last_num(lines[2]);
         let true_to = last_num(lines[3]);
         let false_to = last_num(lines[4]);
