@@ -1,5 +1,6 @@
 use std::{
-    collections::HashSet,
+    cmp::Ordering,
+    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
     error::Error,
     fmt::{self, Debug},
     ops::Deref,
@@ -22,11 +23,10 @@ pub fn run() {
     // dbg!(&hm);
     // println!("{}", &hm);
 
-    let path = hm
-        .get_posible_climb_paths(&hm.start, &ClimbPath::default())
-        .unwrap();
-    dbg!(&path.inner.len());
-    hm.print_path(&path);
+    let dist = hm.shortest_path();
+    dbg!(dist);
+    // dbg!(&path.inner.len());
+    // hm.print_path(&path);
     // dbg!(&path.inner.len());
     // dbg!(first(input));
     // dbg!(second(input));
@@ -36,6 +36,19 @@ pub fn run() {
 pub struct Position {
     x: usize,
     y: usize,
+}
+
+impl Ord for Position {
+    // Reading order: Y then X
+    fn cmp(&self, other: &Self) -> Ordering {
+        (self.y, self.x).cmp(&(other.y, other.x))
+    }
+}
+
+impl PartialOrd for Position {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Position {
@@ -96,6 +109,28 @@ pub struct HeightMap {
 pub struct ClimbPath {
     inner: Vec<Position>,
     directions: Vec<Direction>,
+}
+
+// Generic struct used to select an item based on a minimum score.
+// Use with std::collections::BinaryHeap for problems requiring Djikstra's
+// Algorithm or A*
+
+#[derive(PartialEq, Eq, Debug, Copy, Clone, Hash)]
+pub struct ScoredItem<N, T> {
+    pub cost: N,
+    pub item: T,
+}
+
+impl<N: Ord + PartialOrd, T: Ord + PartialOrd> Ord for ScoredItem<N, T> {
+    fn cmp(&self, other: &ScoredItem<N, T>) -> Ordering {
+        (&other.cost, &other.item).cmp(&(&self.cost, &self.item))
+    }
+}
+
+impl<N: Ord + PartialOrd, T: Ord + PartialOrd> PartialOrd for ScoredItem<N, T> {
+    fn partial_cmp(&self, other: &ScoredItem<N, T>) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl HeightMap {
@@ -193,6 +228,35 @@ impl HeightMap {
             result.sort_by(|a, b| a.inner.len().cmp(&b.inner.len()));
             Some(result[0].to_owned())
         }
+    }
+
+    fn shortest_path(&self) -> Option<usize> {
+        let mut queue = BinaryHeap::from([ScoredItem {
+            cost: 0,
+            item: self.start,
+        }]);
+        let mut visited = HashSet::new();
+
+        while !queue.is_empty() {
+            let step = queue.pop().unwrap();
+            if visited.contains(&step.item) {
+                continue;
+            }
+            if self.end == step.item {
+                return Some(step.cost);
+            }
+
+            visited.insert(step.item);
+            for n in self.neightbors(&step.item) {
+                if self.can_climb(&step.item, &n.0) {
+                    queue.push(ScoredItem {
+                        cost: step.cost + 1,
+                        item: n.0,
+                    });
+                }
+            }
+        }
+        None
     }
 
     fn get_climb_path_iter(&self, cur: &Position, climb_path: &mut ClimbPath) -> ClimbPath {
