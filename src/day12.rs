@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    collections::{BinaryHeap, HashSet},
     error::Error,
     fmt::{self, Debug},
     ops::Deref,
@@ -101,7 +101,7 @@ pub enum Direction {
 #[derive(Debug, Clone)]
 pub struct HeightMap {
     start: Position,
-    end: Position,
+    end: Option<Position>,
     grid: Vec<Vec<u8>>,
 }
 
@@ -178,58 +178,6 @@ impl HeightMap {
         result
     }
 
-    fn get_climb_path(&self) -> ClimbPath {
-        let mut climb_path = ClimbPath::default();
-        self.get_climb_path_iter(&self.start, &mut climb_path);
-        climb_path
-    }
-
-    fn next_path_items(
-        &self,
-        cur: &Position,
-        visited: &HashSet<Position>,
-    ) -> Vec<(Position, Direction)> {
-        let mut can_climb_pos: Vec<(Position, Direction)> = self
-            .neightbors(cur)
-            .into_iter()
-            .filter(|p| self.can_climb(cur, &p.0))
-            .filter(|p| !visited.contains(&p.0))
-            .collect();
-        if can_climb_pos.is_empty() {
-            return vec![];
-        }
-        if let Some(p) = can_climb_pos.iter().find(|i| i.0 == self.end) {
-            return vec![*p];
-        }
-        can_climb_pos.sort_by(|a, b| {
-            a.0.distance_squared(self.end)
-                .cmp(&b.0.distance_squared(self.end))
-        });
-        can_climb_pos
-    }
-
-    fn get_posible_climb_paths(&self, cur: &Position, climb_path: &ClimbPath) -> Option<ClimbPath> {
-        if cur == &self.end {
-            return Some(climb_path.clone());
-        }
-        let visited: HashSet<Position> = climb_path.inner.iter().copied().collect();
-        let mut result = vec![];
-        for path_item in self.next_path_items(cur, &visited) {
-            let mut new_p = climb_path.clone();
-            new_p.inner.push(*cur);
-            new_p.directions.push(path_item.1);
-            if let Some(i) = self.get_posible_climb_paths(&path_item.0, &new_p) {
-                result.push(i);
-            }
-        }
-        if result.is_empty() {
-            None
-        } else {
-            result.sort_by(|a, b| a.inner.len().cmp(&b.inner.len()));
-            Some(result[0].to_owned())
-        }
-    }
-
     fn shortest_path(&self) -> Option<usize> {
         let mut queue = BinaryHeap::from([ScoredItem {
             cost: 0,
@@ -242,7 +190,9 @@ impl HeightMap {
             if visited.contains(&step.item) {
                 continue;
             }
-            if self.end == step.item {
+            if self.end == Some(step.item)
+                || (self.end.is_none() && self.pos_item(step.item) == my_char_to_u8('z'))
+            {
                 return Some(step.cost);
             }
 
@@ -257,19 +207,6 @@ impl HeightMap {
             }
         }
         None
-    }
-
-    fn get_climb_path_iter(&self, cur: &Position, climb_path: &mut ClimbPath) -> ClimbPath {
-        dbg!(&cur);
-        let visited = &climb_path.inner.iter().copied().collect();
-        let mut result = vec![];
-        for path_item in self.next_path_items(cur, visited) {
-            climb_path.inner.push(*cur);
-            climb_path.directions.push(path_item.1);
-            result.push(self.get_climb_path_iter(&path_item.0, climb_path))
-        }
-        result.sort_by(|a, b| a.inner.len().cmp(&b.inner.len()));
-        result[0].clone()
     }
 
     fn print_path(&self, path: &ClimbPath) {
@@ -308,7 +245,7 @@ impl fmt::Display for HeightMap {
                 let pos = Position::new(row, col);
                 if pos == self.start {
                     write!(f, "S")?;
-                } else if pos == self.end {
+                } else if Some(pos) == self.end {
                     write!(f, "E")?;
                 } else {
                     write!(f, "{}", my_u8_to_char(self.pos_item(pos)))?;
@@ -380,16 +317,32 @@ impl FromStr for HeightMap {
                     .collect::<Vec<u8>>()
             })
             .collect::<Vec<Vec<u8>>>();
-        Ok(Self { start, end, grid })
+        Ok(Self {
+            start,
+            end: Some(end),
+            grid,
+        })
     }
 }
 
 fn first(input: &str) -> usize {
-    todo!()
+    let hm: HeightMap = input.parse().unwrap();
+    hm.shortest_path().unwrap()
 }
 
 fn second(input: &str) -> usize {
-    todo!()
+    let origin: HeightMap = input.parse().unwrap();
+    let grid = origin
+        .grid
+        .iter()
+        .map(|i| i.iter().map(|j| my_char_to_u8('z') - j).collect())
+        .collect();
+    let hm = HeightMap {
+        start: origin.end.unwrap(),
+        end: None,
+        grid,
+    };
+    hm.shortest_path().unwrap()
 }
 
 #[cfg(test)]
@@ -398,11 +351,11 @@ mod tests {
 
     #[test]
     fn test_first() {
-        assert_eq!(first(INPUT), 10605);
+        assert_eq!(first(INPUT), 31);
     }
 
     #[test]
     fn test_second() {
-        assert_eq!(second(INPUT), 2713310158);
+        assert_eq!(second(INPUT), 29);
     }
 }
