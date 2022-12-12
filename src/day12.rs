@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::{BinaryHeap, HashSet},
+    collections::{BinaryHeap, HashMap, HashSet},
     error::Error,
     fmt::{self, Debug},
     ops::Deref,
@@ -21,12 +21,11 @@ pub fn run() {
     // let hm: HeightMap = input.parse().unwrap();
     let hm: HeightMap = INPUT.parse().unwrap();
     // dbg!(&hm);
-    // println!("{}", &hm);
+    println!("{}", &hm);
 
-    let dist = hm.shortest_path();
-    dbg!(dist);
-    // dbg!(&path.inner.len());
-    // hm.print_path(&path);
+    let path = hm.shortest_path();
+    dbg!(&path.inner.len());
+    hm.print_path(&path);
     // dbg!(&path.inner.len());
     // dbg!(first(input));
     // dbg!(second(input));
@@ -178,12 +177,14 @@ impl HeightMap {
         result
     }
 
-    fn shortest_path(&self) -> Option<usize> {
+    fn shortest_path(&self) -> ClimbPath {
         let mut queue = BinaryHeap::from([ScoredItem {
             cost: 0,
             item: self.start,
         }]);
         let mut visited = HashSet::new();
+        let mut came_from: HashMap<Position, (Position, Direction)> = HashMap::new();
+        let mut climb_path = ClimbPath::default();
 
         while !queue.is_empty() {
             let step = queue.pop().unwrap();
@@ -193,7 +194,16 @@ impl HeightMap {
             if self.end == Some(step.item)
                 || (self.end.is_none() && self.pos_item(step.item) == my_char_to_u8('z'))
             {
-                return Some(step.cost);
+                let mut curr = step.item;
+                while curr != self.start {
+                    let f = came_from.get(&curr).unwrap().to_owned();
+                    climb_path.inner.push(curr);
+                    climb_path.directions.push(f.1);
+                    curr = f.0;
+                }
+                climb_path.inner.reverse();
+                climb_path.directions.reverse();
+                return climb_path;
             }
 
             visited.insert(step.item);
@@ -203,23 +213,33 @@ impl HeightMap {
                         cost: step.cost + 1,
                         item: n.0,
                     });
+                    if !visited.contains(&n.0) {
+                        came_from.insert(n.0, (step.item, n.1));
+                    }
                 }
             }
         }
-        None
+        climb_path
     }
 
     fn print_path(&self, path: &ClimbPath) {
         for col in 0..self.col_len() {
             for row in 0..self.row_len() {
                 let pos = Position::new(row, col);
-                if let Some(idx) = path.inner.iter().position(|i| i == &pos) {
+                if let Some(idx) = [self.start]
+                    .iter()
+                    .chain(path.inner.iter())
+                    .take(path.inner.len())
+                    .position(|i| i == &pos)
+                {
                     match path.directions[idx] {
                         Direction::Up => print!("^"),
                         Direction::Down => print!("v"),
                         Direction::Left => print!("<"),
                         Direction::Right => print!(">"),
                     }
+                } else if Some(pos) == self.end {
+                    print!("E");
                 } else {
                     print!(".");
                 }
@@ -327,7 +347,8 @@ impl FromStr for HeightMap {
 
 fn first(input: &str) -> usize {
     let hm: HeightMap = input.parse().unwrap();
-    hm.shortest_path().unwrap()
+    let climb_path = hm.shortest_path();
+    climb_path.inner.len()
 }
 
 fn second(input: &str) -> usize {
@@ -342,7 +363,8 @@ fn second(input: &str) -> usize {
         end: None,
         grid,
     };
-    hm.shortest_path().unwrap()
+    let climb_path = hm.shortest_path();
+    climb_path.inner.len()
 }
 
 #[cfg(test)]
