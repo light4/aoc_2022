@@ -1,4 +1,4 @@
-use std::{cell::RefCell, error::Error, fmt, rc::Rc, str::FromStr};
+use std::{cell::RefCell, cmp::Ordering, error::Error, fmt, rc::Rc, str::FromStr};
 
 static INPUT: &str = r#"
 [1,1,3,1,1]
@@ -27,6 +27,12 @@ static INPUT: &str = r#"
 "#;
 
 pub fn run() {
+    let input = r#"
+            [[1],[2,3,4]]
+            [[1],4]
+        "#;
+    let s: Signal = input.parse().unwrap();
+    dbg!(s.is_in_right_order());
     // dbg!(test_order(&vec![1, 1, 3, 1, 1], &vec![1, 1, 5, 1, 1]));
     // dbg!(test_order(&vec![2, 3, 4], &vec![4]));
     // dbg!(test_order(&vec![9], &vec![8, 7, 6]));
@@ -35,19 +41,19 @@ pub fn run() {
     // dbg!(test_order(&vec![], &vec![3]));
     // dbg!(test_order(&vec![3], &vec![]));
 
-    for s in INPUT
-        .split("\n\n")
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-    {
-        let signal: Signal = s.parse().unwrap();
-        println!("{signal}");
-        println!(
-            "{:?}",
-            is_vec_in_right_order(&[&signal.left], &[&signal.right])
-        )
-        // signal.is_in_right_order();
-    }
+    // for s in INPUT
+    //     .split("\n\n")
+    //     .map(|s| s.trim())
+    //     .filter(|s| !s.is_empty())
+    // {
+    //     let signal: Signal = s.parse().unwrap();
+    //     println!("{signal}");
+    //     println!(
+    //         "{:?}",
+    //         is_vec_in_right_order(&[&signal.left], &[&signal.right])
+    //     )
+    //     // signal.is_in_right_order();
+    // }
 }
 
 pub struct Signal {
@@ -57,7 +63,7 @@ pub struct Signal {
 
 impl Signal {
     pub fn is_in_right_order(&self) -> bool {
-        is_vec_in_right_order(&[&self.left], &[&self.right])
+        is_in_right_order(&self.left.as_ref().borrow(), &self.right.as_ref().borrow()).unwrap()
     }
 }
 
@@ -73,39 +79,29 @@ fn test_order(a: &[u32], b: &[u32]) -> bool {
 fn is_vec_in_right_order(
     left: &[&Rc<RefCell<TreeNode>>],
     right: &[&Rc<RefCell<TreeNode>>],
-) -> bool {
+) -> Option<bool> {
     for (l, r) in left.iter().zip(right.iter()) {
         let left_node = l.as_ref().borrow();
         let right_node = r.as_ref().borrow();
         match (left_node.value, right_node.value) {
             (Some(a), Some(b)) => {
                 if a != b {
-                    return a < b;
+                    return Some(a < b);
                 } else {
                     continue;
                 }
             }
-            (Some(a), None) => {
-                let root = Rc::new(RefCell::new(TreeNode::new()));
-                root.borrow_mut().value = Some(a);
-                return is_vec_in_right_order(
-                    &[&root],
-                    &right_node
-                        .children
-                        .iter()
-                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
-                );
+            (Some(_), None) => {
+                if right_node.children.is_empty() {
+                    return Some(false);
+                }
+                return is_in_right_order(&left_node, &right_node.children[0].as_ref().borrow());
             }
-            (None, Some(b)) => {
-                let root = Rc::new(RefCell::new(TreeNode::new()));
-                root.borrow_mut().value = Some(b);
-                return is_vec_in_right_order(
-                    &left_node
-                        .children
-                        .iter()
-                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
-                    &[&root],
-                );
+            (None, Some(_)) => {
+                if left_node.children.is_empty() {
+                    return Some(true);
+                }
+                return is_in_right_order(&left_node.children[0].as_ref().borrow(), &right_node);
             }
             (None, None) => {
                 return is_vec_in_right_order(
@@ -121,11 +117,44 @@ fn is_vec_in_right_order(
             }
         }
     }
-    left.len() < right.len()
+    None
 }
 
-fn is_in_right_order(left: &Rc<RefCell<TreeNode>>, right: &Rc<RefCell<TreeNode>>) -> Option<bool> {
-    todo!()
+fn is_in_right_order(left: &TreeNode, right: &TreeNode) -> Option<bool> {
+    match (left.value, right.value) {
+        (Some(a), Some(b)) => {
+            if a != b {
+                Some(a < b)
+            } else {
+                return is_vec_in_right_order(
+                    &left
+                        .children
+                        .iter()
+                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
+                    &right
+                        .children
+                        .iter()
+                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
+                );
+            }
+        }
+        (Some(_), None) => return is_in_right_order(left, &right.children[0].as_ref().borrow()),
+        (None, Some(_)) => {
+            return is_in_right_order(&left.children[0].as_ref().borrow(), right);
+        }
+        (None, None) => {
+            for (l, r) in left.children.iter().zip(right.children.iter()) {
+                if let Some(b) = is_in_right_order(&l.as_ref().borrow(), &r.as_ref().borrow()) {
+                    return Some(b);
+                }
+            }
+            match left.children.len().cmp(&right.children.len()) {
+                Ordering::Less => Some(true),
+                Ordering::Equal => None,
+                Ordering::Greater => Some(false),
+            }
+        }
+    }
 }
 
 impl fmt::Display for Signal {
