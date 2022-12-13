@@ -1,13 +1,56 @@
 use std::{cell::RefCell, error::Error, fmt, rc::Rc, str::FromStr};
 
+static INPUT: &str = r#"
+[1,1,3,1,1]
+[1,1,5,1,1]
+
+[[1],[2,3,4]]
+[[1],4]
+
+[9]
+[[8,7,6]]
+
+[[4,4],4,4]
+[[4,4],4,4,4]
+
+[7,7,7,7]
+[7,7,7]
+
+[]
+[3]
+
+[[[]]]
+[[]]
+
+[1,[2,[3,[4,[5,6,7]]]],8,9]
+[1,[2,[3,[4,[5,6,0]]]],8,9]
+"#;
+
 pub fn run() {
-    let tree = init_tree("[1,12]");
-    println!("{}", tree.as_ref().borrow());
+    for s in INPUT
+        .split("\n\n")
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
+        let signal: Signal = s.parse().unwrap();
+        println!("{signal}");
+        // signal.is_in_right_order();
+    }
 }
 
 pub struct Signal {
     left: Rc<RefCell<TreeNode>>,
     right: Rc<RefCell<TreeNode>>,
+}
+
+impl fmt::Display for Signal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Signal: [")?;
+        writeln!(f, "    left: {}", self.left.as_ref().borrow())?;
+        writeln!(f, "    right: {}", self.right.as_ref().borrow())?;
+        writeln!(f, "]")?;
+        Ok(())
+    }
 }
 
 #[derive(Default, PartialEq)]
@@ -80,7 +123,6 @@ fn init_tree(s: &str) -> Rc<RefCell<TreeNode>> {
         } else if *c == ',' || *c == ']' {
             let current_clone = Rc::clone(&current);
             {
-                dbg!(&value_stack);
                 let mut mut_child = current_clone.borrow_mut();
                 if !value_stack.is_empty() {
                     mut_child.value = (value_stack.iter().copied().collect::<String>())
@@ -105,7 +147,7 @@ impl FromStr for Signal {
         let splited: Vec<&str> = s
             .split('\n')
             .map(|i| i.trim())
-            .filter(|i| i.is_empty())
+            .filter(|i| !i.is_empty())
             .collect();
         Ok(Self {
             left: init_tree(splited[0]),
