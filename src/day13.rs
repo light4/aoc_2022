@@ -1,5 +1,6 @@
 use std::{cell::RefCell, cmp::Ordering, error::Error, fmt, rc::Rc, str::FromStr};
 
+#[allow(dead_code)]
 static INPUT: &str = r#"
 [1,1,3,1,1]
 [1,1,5,1,1]
@@ -29,26 +30,7 @@ static INPUT: &str = r#"
 pub fn run() {
     let input = include_str!("../input/day13/input");
     dbg!(first(input));
-    // dbg!(first(INPUT));
-
-    let signals: Vec<Signal> = input
-        .split("\n\n")
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.parse::<Signal>().unwrap())
-        .collect();
-    let idx_vec: Vec<usize> = signals
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, s)| {
-            let o = s.left.cmp(&s.right);
-            assert!(o != Ordering::Equal);
-            if o == Ordering::Less { Some(idx) } else { None }
-        })
-        .collect();
-
-    dbg!(&idx_vec);
-    dbg!(&idx_vec.iter().sum::<usize>());
+    dbg!(second(input));
 }
 
 pub struct Signal {
@@ -97,6 +79,7 @@ impl TreeNode {
         self
     }
 
+    #[allow(dead_code)]
     pub fn add_child(&mut self, new_node: Rc<RefCell<TreeNode>>) {
         self.children.push(new_node);
     }
@@ -254,6 +237,39 @@ fn first(input: &str) -> usize {
         .sum()
 }
 
+fn second(input: &str) -> usize {
+    let divider_packets_str = r#"
+        [[2]]
+        [[6]]
+    "#;
+    let mut tree_nodes: Vec<Rc<RefCell<TreeNode>>> = input
+        .split('\n')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(init_tree)
+        .collect();
+    let divider_packets: Vec<Rc<RefCell<TreeNode>>> = divider_packets_str
+        .split('\n')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(init_tree)
+        .collect();
+    tree_nodes.extend(divider_packets.clone());
+    dbg!(&divider_packets.len());
+    tree_nodes.sort();
+    tree_nodes
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, s)| {
+            if divider_packets.contains(s) {
+                Some(idx + 1)
+            } else {
+                None
+            }
+        })
+        .product()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,8 +324,7 @@ mod tests {
     #[test]
     fn test_add_child() {
         let tree = init_tree("[0,1,[3,4,5,[7,8]],2]");
-        let new_node = Rc::new(RefCell::new(TreeNode::default()));
-        new_node.borrow_mut().value = Some(9);
+        let new_node = Rc::new(RefCell::new(TreeNode::default().with_value(9)));
         let child = &tree.as_ref().borrow().children[2];
         child.borrow_mut().add_child(new_node);
         assert_eq!(
@@ -401,5 +416,10 @@ mod tests {
     #[test]
     fn test_first() {
         assert_eq!(first(INPUT), 13);
+    }
+
+    #[test]
+    fn test_second() {
+        assert_eq!(second(INPUT), 140);
     }
 }
