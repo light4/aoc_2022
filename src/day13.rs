@@ -27,8 +27,9 @@ static INPUT: &str = r#"
 "#;
 
 pub fn run() {
-    let input = include_str!("../input/day13/input");
-    dbg!(first(input));
+    // let input = include_str!("../input/day13/input");
+    // dbg!(first(input));
+    dbg!(first(INPUT));
 }
 
 pub struct Signal {
@@ -40,15 +41,6 @@ impl Signal {
     pub fn is_in_right_order(&self) -> bool {
         is_in_right_order(&self.left.as_ref().borrow(), &self.right.as_ref().borrow()).unwrap()
     }
-}
-
-fn test_order(a: &[u32], b: &[u32]) -> bool {
-    for (i, j) in a.iter().zip(b) {
-        if i != j {
-            return i < j;
-        }
-    }
-    a.len() < b.len()
 }
 
 fn is_vec_in_right_order(
@@ -113,8 +105,16 @@ fn is_in_right_order(left: &TreeNode, right: &TreeNode) -> Option<bool> {
                 );
             }
         }
-        (Some(_), None) => return is_in_right_order(left, &right.children[0].as_ref().borrow()),
+        (Some(_), None) => {
+            if right.children.is_empty() {
+                return Some(false);
+            }
+            return is_in_right_order(left, &right.children[0].as_ref().borrow());
+        }
         (None, Some(_)) => {
+            if left.children.is_empty() {
+                return Some(true);
+            }
             return is_in_right_order(&left.children[0].as_ref().borrow(), right);
         }
         (None, None) => {
@@ -144,14 +144,16 @@ impl fmt::Display for Signal {
 
 #[derive(Default, PartialEq)]
 struct TreeNode {
+    pub level: u32,
     pub value: Option<u32>,
     pub children: Vec<Rc<RefCell<TreeNode>>>,
     pub parent: Option<Rc<RefCell<TreeNode>>>,
 }
 
 impl TreeNode {
-    pub fn new() -> Self {
+    pub fn new(level: u32) -> Self {
         Self {
+            level,
             value: None,
             children: vec![],
             parent: None,
@@ -185,17 +187,20 @@ impl fmt::Display for TreeNode {
 }
 
 fn init_tree(s: &str) -> Rc<RefCell<TreeNode>> {
-    let root = Rc::new(RefCell::new(TreeNode::new()));
+    let root = Rc::new(RefCell::new(TreeNode::default()));
     let mut current = Rc::clone(&root);
     let chars = s.chars().collect::<Vec<char>>();
     let mut value_stack = vec![];
+    let mut level = 0;
+    let mut prev_char = ' ';
     for (_, c) in chars.iter().enumerate()
     // .filter(|(idx, _)| *idx > 0 && *idx + 1 < chars.len())
     {
         if c.is_numeric() && !value_stack.is_empty() {
             value_stack.push(c);
         } else if *c == '[' || c.is_numeric() {
-            let child = Rc::new(RefCell::new(TreeNode::new()));
+            level += 1;
+            let child = Rc::new(RefCell::new(TreeNode::new(level)));
             current.borrow_mut().children.push(Rc::clone(&child));
             {
                 let mut mut_child = child.borrow_mut();
@@ -206,15 +211,19 @@ fn init_tree(s: &str) -> Rc<RefCell<TreeNode>> {
                     mut_child.value = (value_stack.iter().copied().collect::<String>())
                         .parse()
                         .ok();
+                    value_stack.clear();
                 }
             }
             current = child;
+        } else if *c == ']' && prev_char == '[' {
+            // dbg!();
         } else if *c == ',' || *c == ']' {
+            level -= 1;
             let current_clone = Rc::clone(&current);
             {
-                let mut mut_child = current_clone.borrow_mut();
+                let mut mut_curr = current_clone.borrow_mut();
                 if !value_stack.is_empty() {
-                    mut_child.value = (value_stack.iter().copied().collect::<String>())
+                    mut_curr.value = (value_stack.iter().copied().collect::<String>())
                         .parse()
                         .ok();
                     value_stack.clear();
@@ -224,6 +233,7 @@ fn init_tree(s: &str) -> Rc<RefCell<TreeNode>> {
         } else {
             panic!("Unknown character: {c}");
         }
+        prev_char = *c;
     }
     let temp_root = root.as_ref().borrow();
     temp_root.children[0].clone()
@@ -272,9 +282,7 @@ fn first(input: &str) -> usize {
         .filter(|s| !s.is_empty())
         .enumerate()
         .filter_map(|(idx, s)| {
-            dbg!(s);
             let signal: Signal = s.parse().unwrap();
-            println!("{signal}");
             if signal.is_in_right_order() {
                 Some(idx + 1)
             } else {
@@ -329,9 +337,16 @@ mod tests {
     }
 
     #[test]
+    fn test_init_tree_5() {
+        let s = "[[8,10,[[8,5,8,6,10],[],[]],2,8],[]]";
+        let tree = init_tree(s);
+        assert_eq!(tree.as_ref().borrow().to_string(), s);
+    }
+
+    #[test]
     fn test_add_child() {
         let tree = init_tree("[0,1,[3,4,5,[7,8]],2]");
-        let new_node = Rc::new(RefCell::new(TreeNode::new()));
+        let new_node = Rc::new(RefCell::new(TreeNode::default()));
         new_node.borrow_mut().value = Some(9);
         let child = &tree.as_ref().borrow().children[2];
         child.borrow_mut().add_child(new_node);
