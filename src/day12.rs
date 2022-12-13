@@ -17,8 +17,11 @@ abdefghi
 "#;
 
 pub fn run() {
-    // let input = include_str!("../input/day12/input");
+    let input = include_str!("../input/day12/input");
     // let hm: HeightMap = input.parse().unwrap();
+    dbg!(first(input));
+    dbg!(second(input));
+
     let hm: HeightMap = INPUT.parse().unwrap();
     // dbg!(&hm);
     println!("{}", &hm);
@@ -27,8 +30,6 @@ pub fn run() {
     dbg!(&path.inner.len());
     hm.print_path(&path);
     // dbg!(&path.inner.len());
-    // dbg!(first(input));
-    // dbg!(second(input));
 }
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq)]
