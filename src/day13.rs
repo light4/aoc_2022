@@ -27,6 +27,14 @@ static INPUT: &str = r#"
 "#;
 
 pub fn run() {
+    // dbg!(test_order(&vec![1, 1, 3, 1, 1], &vec![1, 1, 5, 1, 1]));
+    // dbg!(test_order(&vec![2, 3, 4], &vec![4]));
+    // dbg!(test_order(&vec![9], &vec![8, 7, 6]));
+    // dbg!(test_order(&vec![4, 4], &vec![4, 4, 4]));
+    // dbg!(test_order(&vec![7, 7, 7], &vec![7, 7]));
+    // dbg!(test_order(&vec![], &vec![3]));
+    // dbg!(test_order(&vec![3], &vec![]));
+
     for s in INPUT
         .split("\n\n")
         .map(|s| s.trim())
@@ -34,6 +42,10 @@ pub fn run() {
     {
         let signal: Signal = s.parse().unwrap();
         println!("{signal}");
+        println!(
+            "{:?}",
+            is_vec_in_right_order(&[&signal.left], &[&signal.right])
+        )
         // signal.is_in_right_order();
     }
 }
@@ -41,6 +53,79 @@ pub fn run() {
 pub struct Signal {
     left: Rc<RefCell<TreeNode>>,
     right: Rc<RefCell<TreeNode>>,
+}
+
+impl Signal {
+    pub fn is_in_right_order(&self) -> bool {
+        is_vec_in_right_order(&[&self.left], &[&self.right])
+    }
+}
+
+fn test_order(a: &[u32], b: &[u32]) -> bool {
+    for (i, j) in a.iter().zip(b) {
+        if i != j {
+            return i < j;
+        }
+    }
+    a.len() < b.len()
+}
+
+fn is_vec_in_right_order(
+    left: &[&Rc<RefCell<TreeNode>>],
+    right: &[&Rc<RefCell<TreeNode>>],
+) -> bool {
+    for (l, r) in left.iter().zip(right.iter()) {
+        let left_node = l.as_ref().borrow();
+        let right_node = r.as_ref().borrow();
+        match (left_node.value, right_node.value) {
+            (Some(a), Some(b)) => {
+                if a != b {
+                    return a < b;
+                } else {
+                    continue;
+                }
+            }
+            (Some(a), None) => {
+                let root = Rc::new(RefCell::new(TreeNode::new()));
+                root.borrow_mut().value = Some(a);
+                return is_vec_in_right_order(
+                    &[&root],
+                    &right_node
+                        .children
+                        .iter()
+                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
+                );
+            }
+            (None, Some(b)) => {
+                let root = Rc::new(RefCell::new(TreeNode::new()));
+                root.borrow_mut().value = Some(b);
+                return is_vec_in_right_order(
+                    &left_node
+                        .children
+                        .iter()
+                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
+                    &[&root],
+                );
+            }
+            (None, None) => {
+                return is_vec_in_right_order(
+                    &left_node
+                        .children
+                        .iter()
+                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
+                    &right_node
+                        .children
+                        .iter()
+                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
+                );
+            }
+        }
+    }
+    left.len() < right.len()
+}
+
+fn is_in_right_order(left: &Rc<RefCell<TreeNode>>, right: &Rc<RefCell<TreeNode>>) -> Option<bool> {
+    todo!()
 }
 
 impl fmt::Display for Signal {
@@ -231,5 +316,85 @@ mod tests {
             tree.as_ref().borrow().to_string(),
             "[0,1,[3,4,5,[7,8],9],2]"
         );
+    }
+
+    #[test]
+    fn test_in_right_order_1() {
+        let input = r#"
+            [1,1,3,1,1]
+            [1,1,5,1,1]
+        "#;
+        let s: Signal = input.parse().unwrap();
+        assert_eq!(s.is_in_right_order(), true);
+    }
+
+    #[test]
+    fn test_in_right_order_2() {
+        let input = r#"
+            [[1],[2,3,4]]
+            [[1],4]
+        "#;
+        let s: Signal = input.parse().unwrap();
+        assert_eq!(s.is_in_right_order(), true);
+    }
+
+    #[test]
+    fn test_in_right_order_3() {
+        let input = r#"
+            [9]
+            [[8,7,6]]
+        "#;
+        let s: Signal = input.parse().unwrap();
+        assert_eq!(s.is_in_right_order(), false);
+    }
+
+    #[test]
+    fn test_in_right_order_4() {
+        let input = r#"
+            [[4,4],4,4]
+            [[4,4],4,4,4]
+        "#;
+        let s: Signal = input.parse().unwrap();
+        assert_eq!(s.is_in_right_order(), true);
+    }
+
+    #[test]
+    fn test_in_right_order_5() {
+        let input = r#"
+            [7,7,7,7]
+            [7,7,7]
+        "#;
+        let s: Signal = input.parse().unwrap();
+        assert_eq!(s.is_in_right_order(), false);
+    }
+
+    #[test]
+    fn test_in_right_order_6() {
+        let input = r#"
+            []
+            [3]
+        "#;
+        let s: Signal = input.parse().unwrap();
+        assert_eq!(s.is_in_right_order(), true);
+    }
+
+    #[test]
+    fn test_in_right_order_7() {
+        let input = r#"
+            [[[]]]
+            [[]]
+        "#;
+        let s: Signal = input.parse().unwrap();
+        assert_eq!(s.is_in_right_order(), false);
+    }
+
+    #[test]
+    fn test_in_right_order_8() {
+        let input = r#"
+            [1,[2,[3,[4,[5,6,7]]]],8,9]
+            [1,[2,[3,[4,[5,6,0]]]],8,9]
+        "#;
+        let s: Signal = input.parse().unwrap();
+        assert_eq!(s.is_in_right_order(), false);
     }
 }
