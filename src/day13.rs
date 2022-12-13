@@ -1,7 +1,8 @@
 use std::{cell::RefCell, error::Error, fmt, rc::Rc, str::FromStr};
 
 pub fn run() {
-    todo!()
+    let tree = init_tree("[1,12]");
+    println!("{}", tree.as_ref().borrow());
 }
 
 pub struct Signal {
@@ -9,7 +10,7 @@ pub struct Signal {
     right: Rc<RefCell<TreeNode>>,
 }
 
-#[derive(PartialEq)]
+#[derive(Default, PartialEq)]
 struct TreeNode {
     pub value: Option<u32>,
     pub children: Vec<Rc<RefCell<TreeNode>>>,
@@ -17,12 +18,12 @@ struct TreeNode {
 }
 
 impl TreeNode {
-    pub fn new() -> TreeNode {
-        return TreeNode {
+    pub fn new() -> Self {
+        Self {
             value: None,
             children: vec![],
             parent: None,
-        };
+        }
     }
 
     pub fn add_child(&mut self, new_node: Rc<RefCell<TreeNode>>) {
@@ -33,7 +34,7 @@ impl TreeNode {
 impl fmt::Display for TreeNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(value) = self.value {
-            write!(f, "{}", value)?;
+            write!(f, "{value}")?;
         } else {
             write!(f, "[")?;
             write!(
@@ -55,30 +56,46 @@ fn init_tree(s: &str) -> Rc<RefCell<TreeNode>> {
     let root = Rc::new(RefCell::new(TreeNode::new()));
     let mut current = Rc::clone(&root);
     let chars = s.chars().collect::<Vec<char>>();
-    for (_, c) in chars
-        .iter()
-        .enumerate()
-        .filter(|(idx, _)| *idx > 0 && *idx + 1 < chars.len())
+    let mut value_stack = vec![];
+    for (_, c) in chars.iter().enumerate()
+    // .filter(|(idx, _)| *idx > 0 && *idx + 1 < chars.len())
     {
-        if *c == '[' || c.is_numeric() {
+        if c.is_numeric() && !value_stack.is_empty() {
+            value_stack.push(c);
+        } else if *c == '[' || c.is_numeric() {
             let child = Rc::new(RefCell::new(TreeNode::new()));
             current.borrow_mut().children.push(Rc::clone(&child));
             {
                 let mut mut_child = child.borrow_mut();
                 mut_child.parent = Some(Rc::clone(&current));
                 if c.is_numeric() {
-                    mut_child.value = c.to_digit(10);
+                    value_stack.push(c);
+                } else {
+                    mut_child.value = (value_stack.iter().copied().collect::<String>())
+                        .parse()
+                        .ok();
                 }
             }
             current = child;
         } else if *c == ',' || *c == ']' {
             let current_clone = Rc::clone(&current);
+            {
+                dbg!(&value_stack);
+                let mut mut_child = current_clone.borrow_mut();
+                if !value_stack.is_empty() {
+                    mut_child.value = (value_stack.iter().copied().collect::<String>())
+                        .parse()
+                        .ok();
+                    value_stack.clear();
+                }
+            }
             current = Rc::clone(current_clone.as_ref().borrow().parent.as_ref().unwrap());
         } else {
-            panic!("Unknown character: {}", c);
+            panic!("Unknown character: {c}");
         }
     }
-    root
+    let temp_root = root.as_ref().borrow();
+    temp_root.children[0].clone()
 }
 
 impl FromStr for Signal {
