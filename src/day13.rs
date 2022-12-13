@@ -27,33 +27,8 @@ static INPUT: &str = r#"
 "#;
 
 pub fn run() {
-    let input = r#"
-            [[1],[2,3,4]]
-            [[1],4]
-        "#;
-    let s: Signal = input.parse().unwrap();
-    dbg!(s.is_in_right_order());
-    // dbg!(test_order(&vec![1, 1, 3, 1, 1], &vec![1, 1, 5, 1, 1]));
-    // dbg!(test_order(&vec![2, 3, 4], &vec![4]));
-    // dbg!(test_order(&vec![9], &vec![8, 7, 6]));
-    // dbg!(test_order(&vec![4, 4], &vec![4, 4, 4]));
-    // dbg!(test_order(&vec![7, 7, 7], &vec![7, 7]));
-    // dbg!(test_order(&vec![], &vec![3]));
-    // dbg!(test_order(&vec![3], &vec![]));
-
-    // for s in INPUT
-    //     .split("\n\n")
-    //     .map(|s| s.trim())
-    //     .filter(|s| !s.is_empty())
-    // {
-    //     let signal: Signal = s.parse().unwrap();
-    //     println!("{signal}");
-    //     println!(
-    //         "{:?}",
-    //         is_vec_in_right_order(&[&signal.left], &[&signal.right])
-    //     )
-    //     // signal.is_in_right_order();
-    // }
+    let input = include_str!("../input/day13/input");
+    dbg!(first(input));
 }
 
 pub struct Signal {
@@ -290,6 +265,25 @@ impl Error for ParseSignalError {
     }
 }
 
+fn first(input: &str) -> usize {
+    input
+        .split("\n\n")
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .enumerate()
+        .filter_map(|(idx, s)| {
+            dbg!(s);
+            let signal: Signal = s.parse().unwrap();
+            println!("{signal}");
+            if signal.is_in_right_order() {
+                Some(idx + 1)
+            } else {
+                None
+            }
+        })
+        .sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,5 +419,10 @@ mod tests {
         "#;
         let s: Signal = input.parse().unwrap();
         assert_eq!(s.is_in_right_order(), false);
+    }
+
+    #[test]
+    fn test_first() {
+        assert_eq!(first(INPUT), 13);
     }
 }
