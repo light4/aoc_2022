@@ -27,109 +27,33 @@ static INPUT: &str = r#"
 "#;
 
 pub fn run() {
-    // let input = include_str!("../input/day13/input");
-    // dbg!(first(input));
-    dbg!(first(INPUT));
+    let input = include_str!("../input/day13/input");
+    dbg!(first(input));
+    // dbg!(first(INPUT));
+
+    let signals: Vec<Signal> = input
+        .split("\n\n")
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.parse::<Signal>().unwrap())
+        .collect();
+    let idx_vec: Vec<usize> = signals
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, s)| {
+            let o = s.left.cmp(&s.right);
+            assert!(o != Ordering::Equal);
+            if o == Ordering::Less { Some(idx) } else { None }
+        })
+        .collect();
+
+    dbg!(&idx_vec);
+    dbg!(&idx_vec.iter().sum::<usize>());
 }
 
 pub struct Signal {
     left: Rc<RefCell<TreeNode>>,
     right: Rc<RefCell<TreeNode>>,
-}
-
-impl Signal {
-    pub fn is_in_right_order(&self) -> bool {
-        is_in_right_order(&self.left.as_ref().borrow(), &self.right.as_ref().borrow()).unwrap()
-    }
-}
-
-fn is_vec_in_right_order(
-    left: &[&Rc<RefCell<TreeNode>>],
-    right: &[&Rc<RefCell<TreeNode>>],
-) -> Option<bool> {
-    for (l, r) in left.iter().zip(right.iter()) {
-        let left_node = l.as_ref().borrow();
-        let right_node = r.as_ref().borrow();
-        match (left_node.value, right_node.value) {
-            (Some(a), Some(b)) => {
-                if a != b {
-                    return Some(a < b);
-                } else {
-                    continue;
-                }
-            }
-            (Some(_), None) => {
-                if right_node.children.is_empty() {
-                    return Some(false);
-                }
-                return is_in_right_order(&left_node, &right_node.children[0].as_ref().borrow());
-            }
-            (None, Some(_)) => {
-                if left_node.children.is_empty() {
-                    return Some(true);
-                }
-                return is_in_right_order(&left_node.children[0].as_ref().borrow(), &right_node);
-            }
-            (None, None) => {
-                return is_vec_in_right_order(
-                    &left_node
-                        .children
-                        .iter()
-                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
-                    &right_node
-                        .children
-                        .iter()
-                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
-                );
-            }
-        }
-    }
-    None
-}
-
-fn is_in_right_order(left: &TreeNode, right: &TreeNode) -> Option<bool> {
-    match (left.value, right.value) {
-        (Some(a), Some(b)) => {
-            if a != b {
-                Some(a < b)
-            } else {
-                return is_vec_in_right_order(
-                    &left
-                        .children
-                        .iter()
-                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
-                    &right
-                        .children
-                        .iter()
-                        .collect::<Vec<&Rc<RefCell<TreeNode>>>>(),
-                );
-            }
-        }
-        (Some(_), None) => {
-            if right.children.is_empty() {
-                return Some(false);
-            }
-            return is_in_right_order(left, &right.children[0].as_ref().borrow());
-        }
-        (None, Some(_)) => {
-            if left.children.is_empty() {
-                return Some(true);
-            }
-            return is_in_right_order(&left.children[0].as_ref().borrow(), right);
-        }
-        (None, None) => {
-            for (l, r) in left.children.iter().zip(right.children.iter()) {
-                if let Some(b) = is_in_right_order(&l.as_ref().borrow(), &r.as_ref().borrow()) {
-                    return Some(b);
-                }
-            }
-            match left.children.len().cmp(&right.children.len()) {
-                Ordering::Less => Some(true),
-                Ordering::Equal => None,
-                Ordering::Greater => Some(false),
-            }
-        }
-    }
 }
 
 impl fmt::Display for Signal {
@@ -142,7 +66,7 @@ impl fmt::Display for Signal {
     }
 }
 
-#[derive(Default, PartialEq)]
+#[derive(Default, PartialEq, Eq)]
 struct TreeNode {
     pub level: u32,
     pub value: Option<u32>,
@@ -160,8 +84,44 @@ impl TreeNode {
         }
     }
 
+    #[inline]
+    pub fn with_value(mut self, value: u32) -> Self {
+        self.value = Some(value);
+        self
+    }
+
+    #[inline]
+    pub fn with_child(mut self, value: u32) -> Self {
+        let child = Rc::new(RefCell::new(TreeNode::default().with_value(value)));
+        self.children.push(child);
+        self
+    }
+
     pub fn add_child(&mut self, new_node: Rc<RefCell<TreeNode>>) {
         self.children.push(new_node);
+    }
+}
+
+impl Ord for TreeNode {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self.value, other.value) {
+            (Some(a), Some(b)) => a.cmp(&b),
+            (Some(a), None) => {
+                let new = TreeNode::default().with_child(a);
+                new.cmp(other)
+            }
+            (None, Some(b)) => {
+                let new = TreeNode::default().with_child(b);
+                self.cmp(&new)
+            }
+            (None, None) => self.children.cmp(&other.children),
+        }
+    }
+}
+
+impl PartialOrd for TreeNode {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -283,7 +243,9 @@ fn first(input: &str) -> usize {
         .enumerate()
         .filter_map(|(idx, s)| {
             let signal: Signal = s.parse().unwrap();
-            if signal.is_in_right_order() {
+            let o = signal.left.cmp(&signal.right);
+            assert_ne!(o, Ordering::Equal);
+            if let Ordering::Less = o {
                 Some(idx + 1)
             } else {
                 None
@@ -363,7 +325,7 @@ mod tests {
             [1,1,5,1,1]
         "#;
         let s: Signal = input.parse().unwrap();
-        assert_eq!(s.is_in_right_order(), true);
+        assert!(s.left < s.right);
     }
 
     #[test]
@@ -373,7 +335,7 @@ mod tests {
             [[1],4]
         "#;
         let s: Signal = input.parse().unwrap();
-        assert_eq!(s.is_in_right_order(), true);
+        assert!(s.left < s.right);
     }
 
     #[test]
@@ -383,7 +345,7 @@ mod tests {
             [[8,7,6]]
         "#;
         let s: Signal = input.parse().unwrap();
-        assert_eq!(s.is_in_right_order(), false);
+        assert!(s.left > s.right);
     }
 
     #[test]
@@ -393,7 +355,7 @@ mod tests {
             [[4,4],4,4,4]
         "#;
         let s: Signal = input.parse().unwrap();
-        assert_eq!(s.is_in_right_order(), true);
+        assert!(s.left < s.right);
     }
 
     #[test]
@@ -403,7 +365,7 @@ mod tests {
             [7,7,7]
         "#;
         let s: Signal = input.parse().unwrap();
-        assert_eq!(s.is_in_right_order(), false);
+        assert!(s.left > s.right);
     }
 
     #[test]
@@ -413,7 +375,7 @@ mod tests {
             [3]
         "#;
         let s: Signal = input.parse().unwrap();
-        assert_eq!(s.is_in_right_order(), true);
+        assert!(s.left < s.right);
     }
 
     #[test]
@@ -423,7 +385,7 @@ mod tests {
             [[]]
         "#;
         let s: Signal = input.parse().unwrap();
-        assert_eq!(s.is_in_right_order(), false);
+        assert!(s.left > s.right);
     }
 
     #[test]
@@ -433,7 +395,7 @@ mod tests {
             [1,[2,[3,[4,[5,6,0]]]],8,9]
         "#;
         let s: Signal = input.parse().unwrap();
-        assert_eq!(s.is_in_right_order(), false);
+        assert!(s.left > s.right);
     }
 
     #[test]
