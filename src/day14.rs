@@ -14,20 +14,26 @@ static INPUT: &str = r#"
 "#;
 
 pub fn run() {
-    // let input = include_str!("../input/day14/input");
+    let input = include_str!("../input/day14/input");
     // dbg!(first(input));
     // dbg!(second(input));
 
     let mut mm = MineMap::default()
         .with_grid(vec![vec![State::default(); 600]; 600])
         .with_start((500, 0));
-    for s in INPUT
+    for s in input
         .lines()
         .filter_map(|i| if !i.is_empty() { Some(i.trim()) } else { None })
     {
         mm.update_rock_path(s);
     }
+
+    let mut result = vec![];
+    while let Some(p) = mm.run_once() {
+        result.push(p);
+    }
     println!("{mm}");
+    dbg!(result.len());
 }
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq)]
@@ -88,7 +94,7 @@ impl From<&(usize, usize)> for Position {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum State {
     #[default]
     Air,
@@ -194,8 +200,30 @@ impl MineMap {
         }
     }
 
-    fn fall_path(&self, cur: &Position, next: &Position) -> Option<Position> {
+    fn fall_path(&self, cur: &Position) -> Option<Position> {
+        let possible_pos: [Position; 3] = [
+            (cur.x, cur.y + 1).into(),
+            (cur.x - 1, cur.y + 1).into(),
+            (cur.x + 1, cur.y + 1).into(),
+        ];
+        for p in possible_pos {
+            if self.pos_item(p) == State::Air {
+                return Some(p);
+            }
+        }
         None
+    }
+
+    fn run_once(&mut self) -> Option<Position> {
+        let mut cur = self.start;
+        while let Some(p) = self.fall_path(&cur) {
+            if p.y > self.height {
+                return None;
+            }
+            cur = p
+        }
+        self.update_point(cur, State::RestSand);
+        Some(cur)
     }
 }
 
@@ -232,9 +260,33 @@ impl fmt::Display for MineMap {
 }
 
 fn first(input: &str) -> usize {
-    todo!()
+    let mut mm = MineMap::default()
+        .with_grid(vec![vec![State::default(); 600]; 600])
+        .with_start((500, 0));
+    for s in input
+        .lines()
+        .filter_map(|i| if !i.is_empty() { Some(i.trim()) } else { None })
+    {
+        mm.update_rock_path(s);
+    }
+
+    let mut result = vec![];
+    while let Some(p) = mm.run_once() {
+        result.push(p);
+    }
+    result.len()
 }
 
 fn second(input: &str) -> usize {
     todo!()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_first() {
+        assert_eq!(first(INPUT), 24);
+    }
 }
