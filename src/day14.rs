@@ -19,7 +19,7 @@ pub fn run() {
     // dbg!(second(input));
 
     let mut mm = MineMap::default()
-        .with_grid(vec![vec![State::default(); 600]; 600])
+        .with_grid(vec![vec![State::default(); 1000]; 300])
         .with_start((500, 0));
     for s in input
         .lines()
@@ -27,6 +27,8 @@ pub fn run() {
     {
         mm.update_rock_path(s);
     }
+    mm.update_floor();
+    println!("{mm}");
 
     let mut result = vec![];
     while let Some(p) = mm.run_once() {
@@ -111,6 +113,7 @@ pub struct MineMap {
     left_edge: usize,
     right_edge: usize,
     height: usize,
+    floor: Option<usize>,
 }
 
 fn line_to_points(one: Position, two: Position) -> Vec<Position> {
@@ -188,6 +191,15 @@ impl MineMap {
     }
 
     #[inline]
+    fn update_floor(&mut self) {
+        let floor = self.height + 2;
+        for i in 0..self.row_len() {
+            *self.pos_item_mut((i, floor)) = State::Rock;
+        }
+        self.floor = Some(self.height + 2);
+    }
+
+    #[inline]
     fn pos_item_mut(&mut self, pos: impl Into<Position>) -> &mut State {
         let p = pos.into();
         &mut self.grid[p.y][p.x]
@@ -206,6 +218,9 @@ impl MineMap {
             (cur.x - 1, cur.y + 1).into(),
             (cur.x + 1, cur.y + 1).into(),
         ];
+        if Some(cur.y + 1) == self.floor {
+            return None;
+        }
         for p in possible_pos {
             if self.pos_item(p) == State::Air {
                 return Some(p);
@@ -216,13 +231,16 @@ impl MineMap {
 
     fn run_once(&mut self) -> Option<Position> {
         let mut cur = self.start;
+        if self.pos_item(cur) == State::RestSand {
+            return None;
+        }
         while let Some(p) = self.fall_path(&cur) {
-            if p.y > self.height {
+            if self.floor.is_none() && p.y > self.height {
                 return None;
             }
             cur = p
         }
-        self.update_point(cur, State::RestSand);
+        *self.pos_item_mut(cur) = State::RestSand;
         Some(cur)
     }
 }
@@ -238,8 +256,14 @@ impl Deref for MineMap {
 impl fmt::Display for MineMap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let context = 3;
-        writeln!(f, "{:?}", self.start)?;
-        for col in 0..=self.height.wrapping_add(context) {
+        writeln!(f, "start: {:?}", self.start)?;
+        writeln!(f, "floor: {:?}", self.floor)?;
+        let height = if let Some(f) = self.floor {
+            f + context
+        } else {
+            self.height + context
+        };
+        for col in 0..=height {
             write!(f, "{:3} ", col)?;
             for row in self.left_edge.wrapping_sub(context)..=self.right_edge.wrapping_add(context)
             {
@@ -278,7 +302,22 @@ fn first(input: &str) -> usize {
 }
 
 fn second(input: &str) -> usize {
-    todo!()
+    let mut mm = MineMap::default()
+        .with_grid(vec![vec![State::default(); 1000]; 1000])
+        .with_start((500, 0));
+    for s in input
+        .lines()
+        .filter_map(|i| if !i.is_empty() { Some(i.trim()) } else { None })
+    {
+        mm.update_rock_path(s);
+    }
+    mm.update_floor();
+
+    let mut result = vec![];
+    while let Some(p) = mm.run_once() {
+        result.push(p);
+    }
+    result.len()
 }
 
 #[cfg(test)]
@@ -288,5 +327,10 @@ mod tests {
     #[test]
     fn test_first() {
         assert_eq!(first(INPUT), 24);
+    }
+
+    #[test]
+    fn test_second() {
+        assert_eq!(second(INPUT), 93);
     }
 }
