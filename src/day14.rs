@@ -1,10 +1,7 @@
 use std::{
     cmp::Ordering,
-    collections::{BinaryHeap, HashMap, HashSet},
-    error::Error,
     fmt::{self, Debug},
     ops::Deref,
-    str::FromStr,
 };
 
 #[allow(dead_code)]
@@ -15,27 +12,8 @@ static INPUT: &str = r#"
 
 pub fn run() {
     let input = include_str!("../input/day14/input");
-    // dbg!(first(input));
-    // dbg!(second(input));
-
-    let mut mm = MineMap::default()
-        .with_grid(vec![vec![State::default(); 1000]; 300])
-        .with_start((500, 0));
-    for s in input
-        .lines()
-        .filter_map(|i| if !i.is_empty() { Some(i.trim()) } else { None })
-    {
-        mm.update_rock_path(s);
-    }
-    mm.update_floor();
-    println!("{mm}");
-
-    let mut result = vec![];
-    while let Some(p) = mm.run_once() {
-        result.push(p);
-    }
-    println!("{mm}");
-    dbg!(result.len());
+    dbg!(first(input));
+    dbg!(second(input));
 }
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq)]
@@ -144,8 +122,7 @@ fn to_rock_points(s: &str) -> Vec<Position> {
         .collect();
     let rock_points: Vec<Position> = path_points
         .windows(2)
-        .map(|pairs| line_to_points(pairs[0], pairs[1]))
-        .flatten()
+        .flat_map(|pairs| line_to_points(pairs[0], pairs[1]))
         .collect();
     rock_points
 }
@@ -156,6 +133,7 @@ impl MineMap {
         self.grid[0].len()
     }
 
+    #[allow(dead_code)]
     #[inline]
     fn col_len(&self) -> usize {
         self.grid.len()
@@ -221,12 +199,9 @@ impl MineMap {
         if Some(cur.y + 1) == self.floor {
             return None;
         }
-        for p in possible_pos {
-            if self.pos_item(p) == State::Air {
-                return Some(p);
-            }
-        }
-        None
+        possible_pos
+            .into_iter()
+            .find(|&p| self.pos_item(p) == State::Air)
     }
 
     fn run_once(&mut self) -> Option<Position> {
@@ -264,7 +239,7 @@ impl fmt::Display for MineMap {
             self.height + context
         };
         for col in 0..=height {
-            write!(f, "{:3} ", col)?;
+            write!(f, "{col:3} ")?;
             for row in self.left_edge.wrapping_sub(context)..=self.right_edge.wrapping_add(context)
             {
                 let pos = Position::new(row, col);
@@ -283,9 +258,9 @@ impl fmt::Display for MineMap {
     }
 }
 
-fn first(input: &str) -> usize {
+fn init_map(input: &str) -> MineMap {
     let mut mm = MineMap::default()
-        .with_grid(vec![vec![State::default(); 600]; 600])
+        .with_grid(vec![vec![State::default(); 1000]; 300])
         .with_start((500, 0));
     for s in input
         .lines()
@@ -293,6 +268,11 @@ fn first(input: &str) -> usize {
     {
         mm.update_rock_path(s);
     }
+    mm
+}
+
+fn first(input: &str) -> usize {
+    let mut mm = init_map(input);
 
     let mut result = vec![];
     while let Some(p) = mm.run_once() {
@@ -302,15 +282,7 @@ fn first(input: &str) -> usize {
 }
 
 fn second(input: &str) -> usize {
-    let mut mm = MineMap::default()
-        .with_grid(vec![vec![State::default(); 1000]; 1000])
-        .with_start((500, 0));
-    for s in input
-        .lines()
-        .filter_map(|i| if !i.is_empty() { Some(i.trim()) } else { None })
-    {
-        mm.update_rock_path(s);
-    }
+    let mut mm = init_map(input);
     mm.update_floor();
 
     let mut result = vec![];
