@@ -24,11 +24,24 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3
 "#;
 
 pub fn run() {
-    let input = include_str!("../input/day15/input");
+    let mut line = Line::default();
+    dbg!(&line);
+    dbg!(&line.contains(4));
+    line.add_segment((5, 8));
+    dbg!(&line);
+    dbg!(&line.contains(4));
+    line.add_segment((7, 10));
+    dbg!(&line);
+    dbg!(&line.contains(4));
+    line.add_segment((0, 5));
+    dbg!(&line);
+    dbg!(&line.contains(4));
+
+    // let input = include_str!("../input/day15/input");
     // let mm = init_map(input);
     // dbg!(mm);
     // dbg!(first(input, 2000000));
-    dbg!(second(input, 4000000));
+    // dbg!(second(input, 4000000));
 
     // let mm = init_map_with_empty_points(INPUT);
     // println!("{}", mm);
@@ -242,6 +255,128 @@ impl fmt::Display for MineMap {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct Line {
+    segments: Vec<Segment>,
+}
+
+impl Line {
+    pub fn new(start: isize, end: isize) -> Self {
+        let seg = Segment::new(start, end);
+        Self {
+            segments: vec![seg],
+        }
+    }
+
+    pub fn contains(&self, point: isize) -> bool {
+        self.segments.iter().any(|s| s.contains(point))
+    }
+
+    pub fn add_segment(&mut self, seg: impl Into<Segment>) {
+        self.segments.push(seg.into());
+        self.reduce();
+    }
+
+    fn __reduce(&mut self) {
+        let seg_length = self.segments.len();
+        if seg_length < 2 {
+            return;
+        }
+        let mut joined = false;
+
+        let mut result = vec![];
+        for i in 0..(seg_length - 1) {
+            let left = self.segments[i];
+            let right = self.segments[i + 1];
+            if left.overlap(&right) {
+                result.push(left.join(&right));
+                joined = true;
+            } else if i == seg_length - 2 {
+                result.push(left);
+                result.push(right);
+            } else {
+                result.push(left);
+            }
+        }
+        self.segments = result;
+        if joined {
+            self.__reduce();
+        }
+    }
+
+    pub fn reduce(&mut self) {
+        let seg_length = self.segments.len();
+        if seg_length < 2 {
+            return;
+        }
+
+        self.segments.sort();
+        self.__reduce();
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Segment {
+    start: isize,
+    end: isize,
+}
+
+impl Ord for Segment {
+    // Reading order: Y then X
+    fn cmp(&self, other: &Self) -> Ordering {
+        (self.start, self.end).cmp(&(other.start, other.end))
+    }
+}
+
+impl PartialOrd for Segment {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Segment {
+    pub fn new(start: isize, end: isize) -> Self {
+        Self { start, end }
+    }
+
+    #[inline]
+    pub fn contains(&self, point: isize) -> bool {
+        self.start <= point && point <= self.end
+    }
+
+    #[inline]
+    pub fn overlap(&self, other: &Self) -> bool {
+        if self.start > other.start {
+            return other.overlap(self);
+        }
+        self.end >= other.start
+    }
+
+    #[inline]
+    pub fn join(&self, other: &Self) -> Self {
+        assert!(self.overlap(other));
+        Self::new(self.start.min(other.start), self.end.max(other.end))
+    }
+}
+
+impl From<(isize, isize)> for Segment {
+    fn from(value: (isize, isize)) -> Self {
+        Self {
+            start: value.0,
+            end: value.1,
+        }
+    }
+}
+
+impl From<&(isize, isize)> for Segment {
+    fn from(value: &(isize, isize)) -> Self {
+        Self {
+            start: value.0,
+            end: value.1,
+        }
+    }
+}
+
 fn get_pos(s: &str) -> (Position, Position) {
     let result: Vec<Position> = s
         .split(':')
@@ -331,25 +466,16 @@ fn second(input: &str, dist: usize) -> usize {
         taken_points.insert(beacon_pos);
     }
     for row in 0..dist {
-        let mut points: HashSet<isize> = (0..=idist)
-            .filter(|i| {
-                for p in &taken_points {
-                    if p.y == row as isize {
-                        return i != &p.x;
-                    }
-                }
-                true
-            })
-            .collect();
-        for r in &manhattan_rect_vec {
-            let x_edge = r.intersect_row_x_edge(row as isize);
-            let taken_set: HashSet<isize> = (x_edge.0.max(0)..=x_edge.1.min(idist)).collect();
-            points = points.difference(&taken_set).copied().collect();
-        }
-        if points.len() == 1 {
-            let point = points.iter().nth(0).unwrap();
-            return (point * 4000000) as usize + row;
-        }
+        // let mut line = (0, dist);
+        // for r in &manhattan_rect_vec {
+        //     let x_edge = r.intersect_row_x_edge(row as isize);
+        //     let taken_set: HashSet<isize> = (x_edge.0.max(0)..=x_edge.1.min(idist)).collect();
+        //     points = points.difference(&taken_set).copied().collect();
+        // }
+        // if points.len() == 1 {
+        //     let point = points.iter().nth(0).unwrap();
+        //     return (point * 4000000) as usize + row;
+        // }
     }
     unreachable!()
 }
