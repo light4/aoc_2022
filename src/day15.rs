@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::{self, Debug},
     ops::Deref,
 };
@@ -25,12 +25,12 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3
 
 pub fn run() {
     // let input = include_str!("../input/day15/input");
-    // dbg!(first(input));
+    // dbg!(first(input, 2000000));
     // dbg!(second(input));
 
-    let mm = init_map(INPUT);
-    dbg!(&mm);
-    println!("{}", &mm);
+    // let mm = init_map_with_empty_points(INPUT);
+    // println!("{}", mm);
+    dbg!(first(INPUT, 10));
 }
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq)]
@@ -60,6 +60,21 @@ impl Position {
     #[inline]
     pub fn manhattan_distance(&self, other: Self) -> usize {
         ((self.x - other.x).abs() + (self.y - other.y).abs()) as usize
+    }
+
+    #[inline]
+    pub fn manhattan_points(&self, dist: usize) -> Vec<Self> {
+        let idist = dist as isize;
+        let mut result = vec![];
+        for x in (self.x - idist)..(self.x + idist) {
+            for y in (self.y - idist)..(self.y + idist) {
+                let pos = Position::new(x, y);
+                if &pos != self && self.manhattan_distance(pos) <= dist {
+                    result.push(pos)
+                }
+            }
+        }
+        result
     }
 }
 
@@ -137,6 +152,15 @@ impl MineMap {
         let p = pos.into();
         self.items.get_mut(&p)
     }
+
+    #[inline]
+    fn get_row(&self, row: isize) -> HashMap<Position, Item> {
+        self.items
+            .iter()
+            .filter(|(p, _)| p.y == row)
+            .map(|(p, i)| (*p, *i))
+            .collect()
+    }
 }
 
 impl Deref for MineMap {
@@ -196,8 +220,33 @@ fn init_map(input: &str) -> MineMap {
     mm
 }
 
-fn first(input: &str) -> usize {
-    todo!()
+fn init_map_with_empty_points(input: &str) -> MineMap {
+    let mut mm = MineMap::default();
+    let mut sb_dist_vec = vec![];
+    let mut taken_points = HashSet::new();
+    for s in input.lines().map(|i| i.trim()).filter(|i| !i.is_empty()) {
+        let (sensor_pos, beacon_pos) = get_pos(s);
+        mm.update_point(sensor_pos, Item::Sensor);
+        mm.update_point(beacon_pos, Item::Beacon);
+        sb_dist_vec.push((sensor_pos, sensor_pos.manhattan_distance(beacon_pos)));
+        taken_points.insert(sensor_pos);
+        taken_points.insert(beacon_pos);
+    }
+    for (s, d) in sb_dist_vec {
+        let points = s.manhattan_points(d);
+        for p in points {
+            if !taken_points.contains(&p) {
+                mm.update_point(p, Item::Empty);
+            }
+        }
+    }
+    mm
+}
+
+fn first(input: &str, row: isize) -> usize {
+    let mm = init_map_with_empty_points(input);
+    let row = mm.get_row(row);
+    row.into_iter().filter(|(_, i)| *i == Item::Empty).count()
 }
 
 fn second(input: &str) -> usize {
@@ -210,7 +259,7 @@ mod tests {
 
     #[test]
     fn test_first() {
-        assert_eq!(first(INPUT), 26);
+        assert_eq!(first(INPUT, 10), 26);
     }
 
     #[test]
