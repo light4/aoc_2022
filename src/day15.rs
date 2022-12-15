@@ -27,12 +27,13 @@ pub fn run() {
     let input = include_str!("../input/day15/input");
     // let mm = init_map(input);
     // dbg!(mm);
-    dbg!(first(input, 2000000));
-    // dbg!(second(input));
+    // dbg!(first(input, 2000000));
+    dbg!(second(input, 4000000));
 
     // let mm = init_map_with_empty_points(INPUT);
     // println!("{}", mm);
     // dbg!(first(INPUT, 10));
+    // dbg!(second(INPUT, 20));
 }
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq)]
@@ -311,14 +312,46 @@ fn first(input: &str, row: isize) -> usize {
         }
     }
     let row_edge = edge.unwrap();
-    dbg!(row_edge);
     let taken_count = taken_points.iter().filter(|i| i.y == row).count();
-    dbg!(taken_count);
     (row_edge.1 - row_edge.0 + 1) as usize - taken_count
 }
 
-fn second(input: &str) -> usize {
-    todo!()
+fn second(input: &str, dist: usize) -> usize {
+    let idist = dist as isize;
+    let mut mm = MineMap::default();
+    let mut manhattan_rect_vec = vec![];
+    let mut taken_points = HashSet::new();
+    for s in input.lines().map(|i| i.trim()).filter(|i| !i.is_empty()) {
+        let (sensor_pos, beacon_pos) = get_pos(s);
+        mm.update_point(sensor_pos, Item::Sensor);
+        mm.update_point(beacon_pos, Item::Beacon);
+        manhattan_rect_vec
+            .push(sensor_pos.manhattan_rect(sensor_pos.manhattan_distance(beacon_pos)));
+        taken_points.insert(sensor_pos);
+        taken_points.insert(beacon_pos);
+    }
+    for row in 0..dist {
+        let mut points: HashSet<isize> = (0..=idist)
+            .filter(|i| {
+                for p in &taken_points {
+                    if p.y == row as isize {
+                        return i != &p.x;
+                    }
+                }
+                true
+            })
+            .collect();
+        for r in &manhattan_rect_vec {
+            let x_edge = r.intersect_row_x_edge(row as isize);
+            let taken_set: HashSet<isize> = (x_edge.0.max(0)..=x_edge.1.min(idist)).collect();
+            points = points.difference(&taken_set).copied().collect();
+        }
+        if points.len() == 1 {
+            let point = points.iter().nth(0).unwrap();
+            return (point * 4000000) as usize + row;
+        }
+    }
+    unreachable!()
 }
 
 #[cfg(test)]
@@ -332,6 +365,6 @@ mod tests {
 
     #[test]
     fn test_second() {
-        assert_eq!(second(INPUT), 93);
+        assert_eq!(second(INPUT, 20), 56000011);
     }
 }
