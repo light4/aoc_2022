@@ -27,7 +27,7 @@ pub fn run() {
     let input = include_str!("../input/day15/input");
     // let mm = init_map(input);
     // dbg!(mm);
-    // dbg!(first(input, 2000000));
+    dbg!(first(input, 2000000));
     dbg!(second(input, 4000000));
 
     // let mm = init_map_with_empty_points(INPUT);
@@ -196,21 +196,6 @@ impl MineMap {
         self.edge.grow(&pos);
         self.items.insert(pos, item);
     }
-
-    #[inline]
-    fn pos_item_mut(&mut self, pos: impl Into<Position>) -> Option<&mut Item> {
-        let p = pos.into();
-        self.items.get_mut(&p)
-    }
-
-    #[inline]
-    fn get_row(&self, row: isize) -> HashMap<Position, Item> {
-        self.items
-            .iter()
-            .filter(|(p, _)| p.y == row)
-            .map(|(p, i)| (*p, *i))
-            .collect()
-    }
 }
 
 impl Deref for MineMap {
@@ -224,7 +209,7 @@ impl Deref for MineMap {
 impl fmt::Display for MineMap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let edge = self.edge.expand(3);
-        writeln!(f, "edge: {:?}", edge)?;
+        writeln!(f, "edge: {edge:?}")?;
         for col in edge.top..=edge.down {
             write!(f, "{col:3} ")?;
             for row in edge.left..=edge.right {
@@ -320,12 +305,11 @@ impl Line {
     pub fn empty_points(&self) -> Vec<isize> {
         self.segments
             .windows(2)
-            .map(|v| {
+            .flat_map(|v| {
                 let left = v[0];
                 let right = v[1];
                 ((left.end + 1)..right.start).collect::<Vec<isize>>()
             })
-            .flatten()
             .collect()
     }
 }
@@ -414,6 +398,7 @@ fn get_pos(s: &str) -> (Position, Position) {
     (result[0], result[1])
 }
 
+#[allow(dead_code)]
 fn init_map(input: &str) -> MineMap {
     let mut mm = MineMap::default();
     for s in input.lines().map(|i| i.trim()).filter(|i| !i.is_empty()) {
@@ -424,6 +409,7 @@ fn init_map(input: &str) -> MineMap {
     mm
 }
 
+#[allow(dead_code)]
 fn init_map_with_empty_points(input: &str) -> MineMap {
     let mut mm = MineMap::default();
     let mut sb_dist_vec = vec![];
