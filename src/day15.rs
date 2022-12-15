@@ -24,13 +24,33 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3
 "#;
 
 pub fn run() {
-    // let input = include_str!("../input/day15/input");
-    // dbg!(first(input, 2000000));
+    let input = include_str!("../input/day15/input");
+    // let mm = init_map(input);
+    // dbg!(mm);
+    dbg!(first(input, 2000000));
     // dbg!(second(input));
 
     // let mm = init_map_with_empty_points(INPUT);
     // println!("{}", mm);
-    dbg!(first(INPUT, 10));
+    // dbg!(first(INPUT, 10));
+}
+
+#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq)]
+pub struct ManhattanRect {
+    dist: usize,
+    center: Position,
+    left: Position,
+    right: Position,
+    top: Position,
+    down: Position,
+}
+
+impl ManhattanRect {
+    pub fn intersect_row_x_edge(&self, row: isize) -> (isize, isize) {
+        let idist = self.dist as isize;
+        let x_len = idist - (row - self.center.y).abs();
+        (self.center.x - x_len, self.center.x + x_len)
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq)]
@@ -60,6 +80,31 @@ impl Position {
     #[inline]
     pub fn manhattan_distance(&self, other: Self) -> usize {
         ((self.x - other.x).abs() + (self.y - other.y).abs()) as usize
+    }
+
+    #[inline]
+    pub fn manhattan_rect(&self, dist: usize) -> ManhattanRect {
+        let idist = dist as isize;
+        ManhattanRect {
+            dist,
+            center: *self,
+            left: Position {
+                x: self.x - idist,
+                y: self.y,
+            },
+            right: Position {
+                x: self.x + idist,
+                y: self.y,
+            },
+            top: Position {
+                x: self.x,
+                y: self.y - idist,
+            },
+            down: Position {
+                x: self.x,
+                y: self.y + idist,
+            },
+        }
     }
 
     #[inline]
@@ -244,9 +289,32 @@ fn init_map_with_empty_points(input: &str) -> MineMap {
 }
 
 fn first(input: &str, row: isize) -> usize {
-    let mm = init_map_with_empty_points(input);
-    let row = mm.get_row(row);
-    row.into_iter().filter(|(_, i)| *i == Item::Empty).count()
+    let mut mm = MineMap::default();
+    let mut manhattan_rect_vec = vec![];
+    let mut taken_points = HashSet::new();
+    for s in input.lines().map(|i| i.trim()).filter(|i| !i.is_empty()) {
+        let (sensor_pos, beacon_pos) = get_pos(s);
+        mm.update_point(sensor_pos, Item::Sensor);
+        mm.update_point(beacon_pos, Item::Beacon);
+        manhattan_rect_vec
+            .push(sensor_pos.manhattan_rect(sensor_pos.manhattan_distance(beacon_pos)));
+        taken_points.insert(sensor_pos);
+        taken_points.insert(beacon_pos);
+    }
+    let mut edge: Option<(isize, isize)> = None;
+    for r in manhattan_rect_vec {
+        let x_edge = r.intersect_row_x_edge(row);
+        if let Some(e) = edge {
+            edge = Some((e.0.min(x_edge.0), (e.1.max(x_edge.1))));
+        } else {
+            edge = Some(x_edge);
+        }
+    }
+    let row_edge = edge.unwrap();
+    dbg!(row_edge);
+    let taken_count = taken_points.iter().filter(|i| i.y == row).count();
+    dbg!(taken_count);
+    (row_edge.1 - row_edge.0 + 1) as usize - taken_count
 }
 
 fn second(input: &str) -> usize {
