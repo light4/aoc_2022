@@ -24,24 +24,11 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3
 "#;
 
 pub fn run() {
-    let mut line = Line::default();
-    dbg!(&line);
-    dbg!(&line.contains(4));
-    line.add_segment((5, 8));
-    dbg!(&line);
-    dbg!(&line.contains(4));
-    line.add_segment((7, 10));
-    dbg!(&line);
-    dbg!(&line.contains(4));
-    line.add_segment((0, 5));
-    dbg!(&line);
-    dbg!(&line.contains(4));
-
-    // let input = include_str!("../input/day15/input");
+    let input = include_str!("../input/day15/input");
     // let mm = init_map(input);
     // dbg!(mm);
     // dbg!(first(input, 2000000));
-    // dbg!(second(input, 4000000));
+    dbg!(second(input, 4000000));
 
     // let mm = init_map_with_empty_points(INPUT);
     // println!("{}", mm);
@@ -60,10 +47,14 @@ pub struct ManhattanRect {
 }
 
 impl ManhattanRect {
-    pub fn intersect_row_x_edge(&self, row: isize) -> (isize, isize) {
+    pub fn intersect_row_x_edge(&self, row: isize) -> Option<(isize, isize)> {
         let idist = self.dist as isize;
         let x_len = idist - (row - self.center.y).abs();
-        (self.center.x - x_len, self.center.x + x_len)
+        if x_len < 0 {
+            None
+        } else {
+            Some((self.center.x - x_len, self.center.x + x_len))
+        }
     }
 }
 
@@ -268,8 +259,11 @@ impl Line {
         }
     }
 
-    pub fn contains(&self, point: isize) -> bool {
-        self.segments.iter().any(|s| s.contains(point))
+    pub fn contains(&self, seg: impl Into<Segment>) -> bool {
+        let seg = seg.into();
+        self.segments
+            .iter()
+            .any(|s| s.contains(seg.start) && s.contains(seg.end))
     }
 
     pub fn add_segment(&mut self, seg: impl Into<Segment>) {
@@ -282,15 +276,24 @@ impl Line {
         if seg_length < 2 {
             return;
         }
-        let mut joined = false;
+        let mut joined = None;
 
         let mut result = vec![];
-        for i in 0..(seg_length - 1) {
+        for i in 0..seg_length {
+            if let Some(j) = joined {
+                if j == i {
+                    continue;
+                }
+            }
             let left = self.segments[i];
+            if i == seg_length - 1 {
+                result.push(left);
+                continue;
+            }
             let right = self.segments[i + 1];
-            if left.overlap(&right) {
+            if left.joinable(&right) {
                 result.push(left.join(&right));
-                joined = true;
+                joined = Some(i + 1);
             } else if i == seg_length - 2 {
                 result.push(left);
                 result.push(right);
@@ -299,7 +302,7 @@ impl Line {
             }
         }
         self.segments = result;
-        if joined {
+        if joined.is_some() {
             self.__reduce();
         }
     }
@@ -312,6 +315,18 @@ impl Line {
 
         self.segments.sort();
         self.__reduce();
+    }
+
+    pub fn empty_points(&self) -> Vec<isize> {
+        self.segments
+            .windows(2)
+            .map(|v| {
+                let left = v[0];
+                let right = v[1];
+                ((left.end + 1)..right.start).collect::<Vec<isize>>()
+            })
+            .flatten()
+            .collect()
     }
 }
 
@@ -353,8 +368,16 @@ impl Segment {
     }
 
     #[inline]
+    pub fn joinable(&self, other: &Self) -> bool {
+        if self.start > other.start {
+            return other.joinable(self);
+        }
+        self.end >= other.start - 1
+    }
+
+    #[inline]
     pub fn join(&self, other: &Self) -> Self {
-        assert!(self.overlap(other));
+        assert!(self.joinable(other));
         Self::new(self.start.min(other.start), self.end.max(other.end))
     }
 }
@@ -439,11 +462,12 @@ fn first(input: &str, row: isize) -> usize {
     }
     let mut edge: Option<(isize, isize)> = None;
     for r in manhattan_rect_vec {
-        let x_edge = r.intersect_row_x_edge(row);
-        if let Some(e) = edge {
-            edge = Some((e.0.min(x_edge.0), (e.1.max(x_edge.1))));
-        } else {
-            edge = Some(x_edge);
+        if let Some(x_edge) = r.intersect_row_x_edge(row) {
+            if let Some(e) = edge {
+                edge = Some((e.0.min(x_edge.0), (e.1.max(x_edge.1))));
+            } else {
+                edge = Some(x_edge);
+            }
         }
     }
     let row_edge = edge.unwrap();
@@ -466,16 +490,19 @@ fn second(input: &str, dist: usize) -> usize {
         taken_points.insert(beacon_pos);
     }
     for row in 0..dist {
-        // let mut line = (0, dist);
-        // for r in &manhattan_rect_vec {
-        //     let x_edge = r.intersect_row_x_edge(row as isize);
-        //     let taken_set: HashSet<isize> = (x_edge.0.max(0)..=x_edge.1.min(idist)).collect();
-        //     points = points.difference(&taken_set).copied().collect();
-        // }
-        // if points.len() == 1 {
-        //     let point = points.iter().nth(0).unwrap();
-        //     return (point * 4000000) as usize + row;
-        // }
+        let mut line = Line::default();
+        for r in &manhattan_rect_vec {
+            if let Some(x_edge) = r.intersect_row_x_edge(row as isize) {
+                line.add_segment(x_edge);
+            }
+        }
+        if !line.contains((0, idist)) {
+            for p in line.empty_points() {
+                if !taken_points.iter().any(|i| i.x == p && i.y == row as isize) {
+                    return p as usize * 4000000 + row;
+                }
+            }
+        }
     }
     unreachable!()
 }
