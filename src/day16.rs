@@ -46,6 +46,7 @@ pub struct WeightedValve {
     name: String,
     weight: usize,
     round: usize,
+    path: Vec<String>,
 }
 
 impl Ord for WeightedValve {
@@ -103,35 +104,69 @@ impl MineMap {
             })
             .collect();
         let mut result = BinaryHeap::default();
-        let curr = self.start.clone().unwrap();
-        let mut next_to_calc = self.get_lead_to_valves(&curr, false);
+        let start = self.start.clone().unwrap();
         let mut calculated = HashSet::new();
-        calculated.insert(curr);
+        calculated.insert(start.clone());
+        let mut came_from = HashMap::new();
+        let mut mytest_valves = HashSet::new();
+        mytest_valves.insert(start.clone());
         let mut round = 0;
         while result.len() != left_to_open.len() {
             round += 1;
-            let mut new_next = HashSet::new();
-            'inner: for v in &next_to_calc {
-                calculated.insert(v.clone());
-                for lead_to in self.get_lead_to_valves(v, false) {
-                    if !calculated.contains(&lead_to) {
-                        new_next.insert(lead_to);
+            let mut next_to_calc = HashSet::new();
+            for curr in mytest_valves {
+                next_to_calc = self.get_lead_to_valves(&curr, false);
+                'inner: for v in &next_to_calc {
+                    if calculated.contains(v) {
+                        continue 'inner;
                     }
+                    calculated.insert(v.clone());
+                    if !came_from.contains_key(&v.name) {
+                        came_from.insert(v.name.to_string(), curr.name.to_string());
+                    }
+                    if v.rate == 0 || self.opened.contains_key(&v.name) {
+                        continue 'inner;
+                    }
+                    round += 1;
+                    let item = WeightedValve {
+                        name: v.name.to_string(),
+                        weight: self.new_get_weight(round, v),
+                        round,
+                        path: vec![],
+                    };
+                    result.push(item);
                 }
-                if v.rate == 0 || self.opened.contains_key(&v.name) {
-                    continue 'inner;
-                }
-                round += 1;
-                let item = WeightedValve {
-                    name: v.name.to_string(),
-                    weight: self.new_get_weight(round, v),
-                    round,
-                };
-                result.push(item);
             }
-            next_to_calc = new_next;
+            mytest_valves = next_to_calc;
         }
-        result.pop()
+        if let Some(mut item) = result.pop() {
+            item.path = self.__get_path(&item.name, &start.name, &came_from);
+            Some(item)
+        } else {
+            None
+        }
+    }
+
+    fn __get_path(
+        &self,
+        curr: &str,
+        start: &str,
+        came_from: &HashMap<String, String>,
+    ) -> Vec<String> {
+        let mut result = vec![];
+        let mut name = curr.to_string();
+        loop {
+            if let Some(p) = came_from.get(&name) {
+                result.push(p.to_string());
+                if p == &start {
+                    break;
+                }
+                name = p.to_string();
+            } else {
+                break;
+            }
+        }
+        result
     }
 
     pub fn get_lead_to_valves(&self, v: &Valve, filter: bool) -> HashSet<Valve> {
@@ -254,10 +289,8 @@ fn first(input: &str, mins: usize) -> usize {
     while mm.round <= mm.total_round {
         mm.run_once();
     }
-    dbg!(&mm);
     let mut result = 0;
     for (name, (rate, start_at)) in mm.opened {
-        dbg!(name);
         if mm.total_round > start_at {
             result += (mm.total_round - start_at) * rate;
         }
