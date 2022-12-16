@@ -4,6 +4,8 @@ use std::{
     fmt::Debug,
 };
 
+use crate::day08::Position;
+
 #[allow(dead_code)]
 static INPUT: &str = r#"
 Valve AA has flow rate=0; tunnels lead to valves DD, II, BB
@@ -86,10 +88,10 @@ impl MineMap {
             .collect()
     }
 
-    pub fn open_next_valve_path(&self) -> Option<WeightedValve> {
+    pub fn open_next_valve_path(&self) -> BinaryHeap<WeightedValve> {
         // 没有可以再开的阀门了
         if self.opened.len() + self.no_rate_valves().len() == self.valves.len() {
-            return None;
+            return BinaryHeap::new();
         }
 
         let left_to_open: HashSet<String> = self
@@ -138,12 +140,7 @@ impl MineMap {
             }
             mytest_valves = next_to_calc;
         }
-        if let Some(mut item) = result.pop() {
-            item.path = self.__get_path(&item.name, &start.name, &came_from);
-            Some(item)
-        } else {
-            None
-        }
+        result
     }
 
     fn __get_path(
@@ -230,21 +227,26 @@ impl MineMap {
         }
     }
 
-    pub fn run_once(&mut self) {
-        let item = self.open_next_valve_path();
-        dbg!(&item);
-        if item.is_none() {
-            self.round += 1;
-            return;
-        }
+    pub fn goto_path(&self, item: WeightedValve) -> Self {
+        let mut result = self.clone();
+        let real_next = result.valves.get(&item.name).unwrap();
+        result
+            .opened
+            .insert(item.name.clone(), (real_next.rate, self.round + item.round));
+        result.path.push(item.name.to_string());
+        result.start = Some(real_next.clone());
+        result.round += item.round;
+        result
+    }
 
-        let last = item.unwrap();
-        let real_next = self.valves.get(&last.name).unwrap();
-        self.opened
-            .insert(last.name.clone(), (real_next.rate, self.round + last.round));
-        self.path.push(last.name.to_string());
-        self.start = Some(real_next.clone());
-        self.round += last.round;
+    fn calc_result(&self) -> usize {
+        let mut result = 0;
+        for (_, (rate, start_at)) in self.opened.iter() {
+            if self.total_round > *start_at {
+                result += (self.total_round - start_at) * rate;
+            }
+        }
+        result
     }
 }
 
@@ -284,17 +286,41 @@ fn init_map(input: &str, mins: usize) -> MineMap {
 }
 
 fn first(input: &str, mins: usize) -> usize {
-    let mut mm = init_map(input, mins);
-    while mm.round <= mm.total_round {
-        mm.run_once();
-    }
-    let mut result = 0;
-    for (name, (rate, start_at)) in mm.opened {
-        if mm.total_round > start_at {
-            result += (mm.total_round - start_at) * rate;
+    let mm = init_map(input, mins);
+    let need_opened_len = mm.valves.iter().filter(|(k, v)| v.rate > 0).count();
+    dbg!(need_opened_len);
+
+    let mut possible_result = vec![];
+    let mut all_maps = vec![mm.clone()];
+    loop {
+        if &all_maps.len() <= &0 {
+            break;
         }
+        let mut new_maps = vec![];
+        'inner: for map in &all_maps {
+            let mut items = map.open_next_valve_path();
+            if items.is_empty() {
+                break 'inner;
+            }
+            for _ in 0..=need_opened_len {
+                if let Some(item) = items.pop() {
+                    let cloned = map.goto_path(item);
+                    if cloned.round >= cloned.total_round || cloned.opened.len() >= need_opened_len
+                    {
+                        let r = cloned.calc_result();
+                        if r > 1000 {
+                            possible_result.push(cloned.calc_result());
+                        }
+                    } else {
+                        new_maps.push(cloned);
+                    }
+                }
+            }
+        }
+        all_maps = new_maps;
     }
-    result
+    possible_result.sort();
+    *possible_result.last().unwrap()
 }
 
 fn second(input: &str, dist: usize) -> usize {
