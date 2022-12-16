@@ -110,11 +110,11 @@ impl MineMap {
         let mut came_from = HashMap::new();
         let mut mytest_valves = HashSet::new();
         mytest_valves.insert(start.clone());
-        let mut round = 0;
+        let mut used_round = 0;
         while result.len() != left_to_open.len() {
-            round += 1;
             let mut next_to_calc = HashSet::new();
             for curr in mytest_valves {
+                used_round += 1;
                 next_to_calc = self.get_lead_to_valves(&curr, false);
                 'inner: for v in &next_to_calc {
                     if calculated.contains(v) {
@@ -127,11 +127,10 @@ impl MineMap {
                     if v.rate == 0 || self.opened.contains_key(&v.name) {
                         continue 'inner;
                     }
-                    round += 1;
                     let item = WeightedValve {
                         name: v.name.to_string(),
-                        weight: self.new_get_weight(round, v),
-                        round,
+                        weight: self.new_get_weight(used_round + 1, v),
+                        round: used_round + 1,
                         path: vec![],
                     };
                     result.push(item);
