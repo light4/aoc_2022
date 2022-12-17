@@ -5,13 +5,23 @@ use std::{
     ops::Deref,
 };
 
+static INPUT: &str = r#">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"#;
+
 pub fn run() {
-    let mut mm = MineMap::new(7);
-    dbg!(&mm);
-    println!("{}", &mm);
-    mm.add_rock(Rock::Squar);
-    println!("{}", &mm);
-    // first(INPUT, 2022);
+    let input = include_str!("../input/day17/input");
+    dbg!(first(input, 2022));
+    // let mut mm = MineMap::new(7);
+    // println!("{}", &mm);
+    // mm.add_rock(Rock::Minus);
+    // println!("{}", &mm);
+
+    // mm.move_rock_item(Direction::Right);
+    // println!("{}", &mm);
+    // mm.move_rock_item(Direction::Down);
+    // println!("{}", &mm);
+
+    // dbg!(first(INPUT, 2022));
+    // dbg!(first(INPUT, 5));
 }
 
 // ####
@@ -91,8 +101,6 @@ const ALL_ROCKS: [Rock; 5] = [
     Rock::Squar,
 ];
 
-static INPUT: &str = r#">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"#;
-
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Item {
     #[default]
@@ -152,7 +160,78 @@ impl MineMap {
             .map(|p| Position::new(p.x + 3, p.y + self.highest + 4))
             .collect();
         item.pos = new_pos;
+        self.edge.top = self.edge.top.max(self.highest + 8);
         self.rock_item = Some(item);
+    }
+
+    pub fn move_rock_item(&mut self, direction: Direction) {
+        assert!(self.rock_item.is_some());
+        if let Some(item) = &self.rock_item {
+            match direction {
+                Direction::Left => {
+                    if item
+                        .pos
+                        .iter()
+                        .any(|i| i.x <= 1 || self.items.contains_key(&Position::new(i.x - 1, i.y)))
+                    {
+                        return;
+                    }
+                    let new_pos = item
+                        .pos
+                        .iter()
+                        .map(|p| Position::new(p.x - 1, p.y))
+                        .collect();
+                    self.rock_item = Some(RockItem {
+                        rock: item.rock,
+                        pos: new_pos,
+                    })
+                }
+                Direction::Right => {
+                    if item.pos.iter().any(|i| {
+                        i.x >= self.edge.right - 1
+                            || self.items.contains_key(&Position::new(i.x + 1, i.y))
+                    }) {
+                        return;
+                    }
+                    let new_pos = item
+                        .pos
+                        .iter()
+                        .map(|p| Position::new(p.x + 1, p.y))
+                        .collect();
+                    self.rock_item = Some(RockItem {
+                        rock: item.rock,
+                        pos: new_pos,
+                    })
+                }
+                Direction::Down => {
+                    if item
+                        .pos
+                        .iter()
+                        .any(|i| self.items.contains_key(&Position::new(i.x, i.y - 1)))
+                    {
+                        for p in &item.pos {
+                            self.items.insert(*p, Item::RestRock);
+                            self.highest = self.highest.max(p.y);
+                        }
+                        self.edge.top = self.edge.top.max(self.highest + 3);
+                        self.rock_item = None;
+                        return;
+                    }
+                    let new_pos = item
+                        .pos
+                        .iter()
+                        .map(|p| Position::new(p.x, p.y - 1))
+                        .collect();
+                    self.rock_item = Some(RockItem {
+                        rock: item.rock,
+                        pos: new_pos,
+                    })
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+        }
     }
 }
 
@@ -169,7 +248,10 @@ impl fmt::Display for MineMap {
         writeln!(f, "edge: {:?}", self.edge)?;
         for col in (self.edge.down..=self.edge.top).rev() {
             write!(f, "{col:4} ")?;
-            for row in self.edge.left..=self.edge.right {
+
+            // wall
+            write!(f, "|")?;
+            for row in (self.edge.left + 1)..self.edge.right {
                 let pos = Position::new(row, col);
 
                 if let Some(item) = self.get(&pos) {
@@ -191,6 +273,9 @@ impl fmt::Display for MineMap {
                     write!(f, ".")?;
                 }
             }
+            // wall
+            write!(f, "|")?;
+
             writeln!(f)?;
         }
         Ok(())
@@ -256,11 +341,33 @@ pub enum Direction {
     Right,
 }
 
+fn to_directions(input: &str) -> Vec<Direction> {
+    input
+        .trim()
+        .chars()
+        .map(|c| match c {
+            '>' => Direction::Right,
+            '<' => Direction::Left,
+            _ => unreachable!(),
+        })
+        .collect()
+}
+
 fn first(input: &str, rocks: usize) -> usize {
+    let mut mm = MineMap::new(7);
+    let directions = to_directions(input);
+    let mut direction_iter = std::iter::repeat(directions).flatten();
     for rock in std::iter::repeat(ALL_ROCKS).flatten().take(rocks) {
-        dbg!(rock);
+        if mm.rock_item.is_none() {
+            mm.add_rock(rock);
+        }
+        while mm.rock_item.is_some() {
+            let direction = direction_iter.next().unwrap();
+            mm.move_rock_item(direction);
+            mm.move_rock_item(Direction::Down);
+        }
     }
-    0
+    mm.highest
 }
 
 #[cfg(test)]
