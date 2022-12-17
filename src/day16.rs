@@ -4,8 +4,6 @@ use std::{
     fmt::Debug,
 };
 
-use crate::day08::Position;
-
 #[allow(dead_code)]
 static INPUT: &str = r#"
 Valve AA has flow rate=0; tunnels lead to valves DD, II, BB
@@ -27,10 +25,25 @@ pub fn run() {
     // dbg!(first(input, 30));
     // dbg!(second(input, 4000000));
 
-    // let mut mm = init_map(INPUT, 30);
+    let mm = init_map(INPUT, 30);
+    let items = mm.open_next_valve_path();
+    let item = items.iter().find(|i| i.name == "DD").unwrap();
+    let cloned = mm.goto_path(item.clone());
+    // dbg!(&cloned);
+
+    let new_items = cloned.open_next_valve_path();
+    let new_item = new_items.iter().find(|i| i.name == "BB").unwrap();
+    let new_cloned = cloned.goto_path(new_item.clone());
+    // dbg!(&new_cloned);
+
+    let new_new_items = new_cloned.open_next_valve_path();
+    let new_new_item = new_new_items.iter().find(|i| i.name == "JJ").unwrap();
+    let new_new_cloned = new_cloned.goto_path(new_new_item.clone());
+    dbg!(&new_new_items);
+    dbg!(&new_new_cloned);
     // dbg!(&mm);
     // println!("{}", mm);
-    dbg!(first(INPUT, 30));
+    // dbg!(first(INPUT, 30));
     // dbg!(&mm.get_sorted_valves());
     // dbg!(&mm);
     // dbg!(second(INPUT, 20));
@@ -108,7 +121,6 @@ impl MineMap {
         let mut result = BinaryHeap::default();
         let start = self.start.clone().unwrap();
         let mut calculated = HashSet::new();
-        calculated.insert(start.clone());
         let mut came_from = HashMap::new();
         let mut mytest_valves = HashSet::new();
         mytest_valves.insert(start.clone());
@@ -117,12 +129,12 @@ impl MineMap {
             let mut next_to_calc = HashSet::new();
             for curr in mytest_valves {
                 used_round += 1;
+                if calculated.contains(&curr) {
+                    continue;
+                }
+                calculated.insert(curr.clone());
                 next_to_calc = self.get_lead_to_valves(&curr, false);
                 'inner: for v in &next_to_calc {
-                    if calculated.contains(v) {
-                        continue 'inner;
-                    }
-                    calculated.insert(v.clone());
                     if !came_from.contains_key(&v.name) {
                         came_from.insert(v.name.to_string(), curr.name.to_string());
                     }
